@@ -1,0 +1,9 @@
+bin/
+include/
+lib/
+lib64
+*.cfg
+*.xml
+*.ctd
+*.nmap
+*.gnmap
