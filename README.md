@@ -2,6 +2,7 @@
 This is a random collection of different recon tools I wrote. They are all not "large enough" to deserve an own repo but I find them quite handy.
 
 ## nmap2cherrytree.py
+Convert XMLs from `nmap` scans into [cherrytree](https://www.giuspen.com/cherrytree/) files.
 ### Installation
 ```bash
 python3 -m venv .
@@ -16,11 +17,17 @@ python3 nmap2cherrytree.py scan.xml > scan.ctd
 Then open `scan.ctd` in cherrytree
 
 ## redirects.sh
+Use [`gau`](https://github.com/lc/gau) and [`httpx`](https://github.com/projectdiscovery/httpx) to find URLs that might be used as open redirects.
+
+### Usage
 ```bash
 Usage: ./redirects.sh [-s|--subs] [-h|--help] [-k|--keep-temp] [-v|--verbose] DOMAIN OUTFILE
 ```
 
 ## spfips.sh
+Recursively enumerate all IPs that are allowed to send emails for a certain domain according to the SPF record. Useful to enumerate mailservers or to check your own configuration.
+
+### Usage
 ```bash
 $ ./spfips.sh google.com
 google.com:
