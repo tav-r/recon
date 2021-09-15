@@ -7,7 +7,7 @@ source bin/activate
 pip install -r requirements.txt
 ```
 ### Usage
-````
+```
 nmap -oX scan scanme.com
 python3 nmap2cherrytree.py scan.xml > scan.ctd
 ```
