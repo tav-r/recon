@@ -1,13 +1,13 @@
-#!/bin/sh
+#!/bin/bash
 
 #########################################################################
 # This script recursively enumerates TXT dns entries for a given domain #
 # and parses SPF information. It can be used to get an overview of IPs  #
 # that are allowed to send mails for a given domain. Use it like:       #
-#  $ ./spfips.sh example.com                                               #
+#  $ ./spfips.sh example.com                                            #
 #########################################################################
 
-function get_ips() {
+function get_ips {
     includes=()
 
     args=$1
