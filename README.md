@@ -63,3 +63,16 @@ _netblocks3.google.com:
         35.191.0.0/16
         130.211.0.0/22
 ```
+
+## URL sieve
+Filter URLs that only differ in queries while collecting all queries. Example:
+```
+$ echo "http://google.com/?q=test
+  http://google.com/?r=something
+  https://example.com/
+  http://google.com/?q=something&r=or&s=else" | python3 url_sieve.py
+http://google.com/?q=test&r=something&s=else
+https://example.com/
+```
+
+I find this to be useful when collecting URLs with [gau](https://github.com/lc/gau) or [hakrawler](https://github.com/hakluke/hakrawler)
