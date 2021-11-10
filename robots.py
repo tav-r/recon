@@ -11,7 +11,7 @@ def iter_stdin() -> Iterator:
             yield input()
         except EOFError:
             return
-    
+
 
 def probe(url: str):
     return requests.get(url).status_code
@@ -28,9 +28,9 @@ def parse_robots(robots_txt: str, base_url: str):
 
 
 def crawl_robots_txt(domain: str, port: Optional[int] = None, no_https=False):
-    port = "" if not port else f":{port}"
+    port_str = "" if not port else f":{port}"
     scheme = "https" if not no_https else "http"
-    base_url = f"{scheme}://{domain}{port}"
+    base_url = f"{scheme}://{domain}{port_str}"
     url = f"{base_url}/robots.txt"
     res = requests.get(url)
 

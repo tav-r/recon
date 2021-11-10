@@ -1,11 +1,22 @@
-import requests
 import json
 
+import dns
+import dns.resolver
+
+from argparse import ArgumentParser
 from ipaddress import IPv4Network, IPv6Network, AddressValueError, IPv6Address
 from functools import partial
 from typing import Union, Callable, Iterator, Iterable, Final
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from sys import argv
+from itertools import chain
+
+
+def iter_stdin() -> Iterator:
+    while True:
+        try:
+            yield input()
+        except EOFError:
+            return
 
 
 def chunked_iterator(i: Iterable, chunk_size: int) -> Iterator:
@@ -28,29 +39,41 @@ def is_ip(address: str, type_: Callable):
 def resolve(domain: str, type_: str):
     try:
         return [
-            ans["data"] for ans in
-            json.loads(requests.get(
-                f"https://dns.google.com/resolve?name={domain}&type={type_}"
-            ).content)["Answer"]
+            d.to_text().split(" ")[-1] for d in
+            dns.resolver.resolve(domain, type_, lifetime=.5)
+            .response.answer
         ]
-    except KeyError:
+    except (
+        dns.resolver.NXDOMAIN,
+        dns.exception.Timeout,
+        dns.resolver.NoNameservers
+    ):
         raise ValueError(f"Could not resolve domain '{domain}'")
 
 
 def reverse_lookup_ipv4(ip):
-    return resolve(f"{'.'.join(ip.split('.')[::-1])}.in-addr.arpa", "PTR")
+    return ip, resolve(f"{'.'.join(ip.split('.')[::-1])}.in-addr.arpa", "PTR")
 
 
 def reverse_lookup_ipv6(ip):
-    resolve(
+    return ip, resolve(
         f"{'.'.join(IPv6Address(ip).exploded.replace(':', '')[::-1])}.ip6.arpa",
         "PTR"
     )
 
 
+def pick_ipv(ip_range):
+    if is_ipv4(ip_range):
+        return IPv4Network(ip_range), reverse_lookup_ipv4
+    elif is_ipv6(ip_range):
+        return IPv6Network(ip_range), reverse_lookup_ipv6
+    else:
+        raise ValueError(f"'{ip_range}' is not a valid ip range")
+
+
 def resolve_network(
-    network: Union[IPv4Network,IPv6Network], resolver: Callable,
-    threads: int = 20
+    network: Union[IPv4Network, IPv6Network], resolver: Callable,
+    threads: int = 10
 ) -> Iterator:
     executor: Final = ThreadPoolExecutor(threads)
 
@@ -65,17 +88,25 @@ def resolve_network(
 
 
 def main():
-    ip_range = argv[1]
-    if is_ipv4(ip_range):
-        generator = resolve_network(IPv4Network(ip_range), reverse_lookup_ipv4)
-    elif is_ipv6(ip_range):
-        generator = resolve_network(IPv6Network(ip_range), reverse_lookup_ipv6)
-    else:
-        raise ValueError(f"'{argv[1]}' is not a valid ip range")
+    ap = ArgumentParser()
+    ap.add_argument(
+        "-t", "--threads", dest="threads", default=10,
+        help="Number of parallel DNS resolver threads",
+        type=int
+    )
+
+    args = ap.parse_args()
+
+    generator = chain(*(
+        resolve_network(*pick_ipv(ip_range), threads=args.threads)
+        for ip_range in iter_stdin()
+    ))
 
     try:
-        for res in generator:
-            print(res)
+        print(json.dumps(
+            dict(res for res in generator),
+            indent=4
+        ))
     except KeyboardInterrupt:
         print("Interrupted, exiting...")
 
