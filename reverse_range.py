@@ -87,7 +87,7 @@ def resolve_network(
                 continue
 
 
-def main():
+def run_from_stdin():
     ap = ArgumentParser()
     ap.add_argument(
         "-t", "--threads", dest="threads", default=10,
@@ -103,10 +103,7 @@ def main():
     ))
 
     try:
-        print(json.dumps(
-            dict(res for res in generator),
-            indent=4
-        ))
+        return dict(res for res in generator),
     except KeyboardInterrupt:
         print("Interrupted, exiting...")
 
@@ -116,4 +113,4 @@ is_ipv6 = partial(is_ip, type_=IPv6Network)
 
 
 if __name__ == "__main__":
-    main()
+    print(json.dumps(run_from_stdin(), indent=4))

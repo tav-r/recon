@@ -44,14 +44,16 @@ def get_cn(ip: str, port: int):
         yield name
 
 
+def run_from_iter(iter_: Iterator):
+    return [functools.reduce(
+        lambda a, b: a + b,
+        get_cn(line.strip(), 443)
+    ) for line in iter_]
+
+
 def run_from_stdin():
-    print(json.dumps([
-        functools.reduce(
-            lambda a, b: a + b,
-            get_cn(line.strip(), 443)
-        ) for line in iter_stdin()
-    ]))
+    return run_from_iter(iter_stdin())
 
 
 if __name__ == "__main__":
-    run_from_stdin()
+    print(json.dumps(run_from_stdin()))

@@ -22,9 +22,12 @@ def parse_robots(robots_txt: str, base_url: str):
         lambda l:
         l.split(" ")[0] in ["Allow:", "Disallow:"], robots_txt.split("\n")
     ):
-        yield (lambda l: (l[0].strip(), f"{base_url}{l[1].strip()}"))(
-            line.split(" ")
-        )
+        try:
+            yield (lambda l: (l[0].strip(), f"{base_url}{l[1].strip()}"))(
+                line.split(" ")
+            )
+        except IndexError:
+            ...
 
 
 def crawl_robots_txt(domain: str, port: Optional[int] = None, no_https=False):
@@ -59,12 +62,10 @@ def main():
 
     args = ap.parse_args()
 
-    print(json.dumps({
-        domain: crawl_robots_txt(
-            domain, args.port, args.no_https
-        ) for domain in iter_stdin()
-    }, indent=4))
+    return {domain: crawl_robots_txt(
+        domain, args.port, args.no_https
+    ) for domain in iter_stdin()}
 
 
 if __name__ == "__main__":
-    main()
+    print(json.dumps(main(), indent=4))
