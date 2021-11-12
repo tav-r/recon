@@ -2,7 +2,7 @@ import requests
 import json
 import argparse
 
-from typing import Iterator, Optional
+from typing import Iterator, Optional, Iterable
 
 
 def iter_stdin() -> Iterator:
@@ -49,7 +49,17 @@ def crawl_robots_txt(domain: str, port: Optional[int] = None, no_https=False):
         }
 
 
-def main():
+def run_from_iter(
+    iter_: Iterable,
+    port: int=443,
+    no_https: bool=False
+):
+    return {domain: crawl_robots_txt(
+        domain, port, no_https
+    ) for domain in iter_}
+
+
+def run_from_stdin():
     ap = argparse.ArgumentParser()
     ap.add_argument(
         "-p", "--port", dest="port", help="http port to use", type=int,
@@ -62,10 +72,7 @@ def main():
 
     args = ap.parse_args()
 
-    return {domain: crawl_robots_txt(
-        domain, args.port, args.no_https
-    ) for domain in iter_stdin()}
-
+    return run_from_iter(iter_stdin(), args.port, args.no_https)
 
 if __name__ == "__main__":
-    print(json.dumps(main(), indent=4))
+    print(json.dumps(run_from_stdin(), indent=4))

@@ -87,6 +87,13 @@ def resolve_network(
                 continue
 
 
+def run_from_iter(iter_: Iterable, nthreads: int):
+    return dict(chain(*(
+        resolve_network(*pick_ipv(ip_range), threads=nthreads)  # type: ignore
+        for ip_range in iter_
+    )))
+
+
 def run_from_stdin():
     ap = ArgumentParser()
     ap.add_argument(
@@ -97,13 +104,8 @@ def run_from_stdin():
 
     args = ap.parse_args()
 
-    generator = chain(*(
-        resolve_network(*pick_ipv(ip_range), threads=args.threads)
-        for ip_range in iter_stdin()
-    ))
-
     try:
-        return dict(res for res in generator),
+        return run_from_iter(iter_stdin(), args.threads)
     except KeyboardInterrupt:
         print("Interrupted, exiting...")
 

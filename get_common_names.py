@@ -8,7 +8,7 @@ import functools
 
 import OpenSSL.crypto as crypto
 
-from typing import Iterator, Callable, List, Any
+from typing import Iterator, Callable, List, Any, Iterable
 
 
 def catch_wrapper(g: Callable, exceptions: List[Any]):
@@ -44,7 +44,7 @@ def get_cn(ip: str, port: int):
         yield name
 
 
-def run_from_iter(iter_: Iterator):
+def run_from_iter(iter_: Iterable):
     return [functools.reduce(
         lambda a, b: a + b,
         get_cn(line.strip(), 443)
