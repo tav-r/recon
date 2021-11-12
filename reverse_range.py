@@ -39,9 +39,9 @@ def is_ip(address: str, type_: Callable):
 def resolve(domain: str, type_: str):
     try:
         return [
-            d.to_text().split(" ")[-1] for d in
-            dns.resolver.resolve(domain, type_, lifetime=.5)
-            .response.answer
+            d.to_text().split(" ")[-1] for a in
+            dns.resolver.resolve(domain, type_, lifetime=2)
+            .response.answer for d in a
         ]
     except (
         dns.resolver.NXDOMAIN,
