@@ -27,6 +27,10 @@ def chunked_iterator(i: Iterable, chunk_size: int) -> Iterator:
             yield buffer
             buffer =[]
 
+    # yield buffer if we are done iterating and buffer is not yet empty
+    if buffer:
+        yield buffer
+
 
 def is_ip(address: str, type_: Callable):
     try:
@@ -79,9 +83,9 @@ def resolve_network(
     executor: Final = ThreadPoolExecutor(threads)
 
     for addrs in chunked_iterator(network.hosts(), threads):
-        tasks = [executor.submit(resolver, str(addr)) for addr in addrs]
-
-        for res in as_completed(tasks):
+        for res in as_completed(
+            executor.submit(resolver, str(addr)) for addr in addrs
+        ):
             try:
                 yield res.result()
             except ValueError:
