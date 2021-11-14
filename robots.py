@@ -74,5 +74,6 @@ def run_from_stdin():
 
     return run_from_iter(iter_stdin(), args.port, args.no_https)
 
+
 if __name__ == "__main__":
     print(json.dumps(run_from_stdin(), indent=4))

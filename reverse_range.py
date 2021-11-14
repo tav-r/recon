@@ -55,9 +55,10 @@ def reverse_lookup_ipv4(ip):
     return ip, resolve(f"{'.'.join(ip.split('.')[::-1])}.in-addr.arpa", "PTR")
 
 
-def reverse_lookup_ipv6(ip):
+def reverse_lookup_ipv6(ip: str):
+    parsed_ip = IPv6Address(ip)
     return ip, resolve(
-        f"{'.'.join(IPv6Address(ip).exploded.replace(':', '')[::-1])}.ip6.arpa",
+        f"{'.'.join(parsed_ip.exploded.replace(':', '')[::-1])}.ip6.arpa",
         "PTR"
     )
 
