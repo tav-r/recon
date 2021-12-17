@@ -25,44 +25,10 @@ Usage: ./redirects.sh [-s|--subs] [-h|--help] [-k|--keep-temp] [-v|--verbose] DO
 ```
 
 ## spfips.sh
-Recursively enumerate all IPs that are allowed to send emails for a certain domain according to the SPF record. Useful to enumerate mailservers or to check your own configuration.
+Removed, parsing SPF records with bash is annoying and error prone, hence this script was buggy. Check out [mail-autoaudit's](https://github.com/tav-r/mail-autoaudit) `dns` subcommand.
 
-### Usage
-```bash
-$ ./spfips.sh google.com
-google.com:
-_spf.google.com:
-_netblocks.google.com:
-        35.190.247.0/24
-        64.233.160.0/19
-        66.102.0.0/20
-        66.249.80.0/20
-        72.14.192.0/18
-        74.125.0.0/16
-        108.177.8.0/21
-        173.194.0.0/16
-        209.85.128.0/17
-        216.58.192.0/19
-        216.239.32.0/19
-_netblocks2.google.com:
-        2001:4860:4000::/36
-        2404:6800:4000::/36
-        2607:f8b0:4000::/36
-        2800:3f0:4000::/36
-        2a00:1450:4000::/36
-        2c0f:fb50:4000::/36
-_netblocks3.google.com:
-        172.217.0.0/19
-        172.217.32.0/20
-        172.217.128.0/19
-        172.217.160.0/20
-        172.217.192.0/19
-        172.253.56.0/21
-        172.253.112.0/20
-        108.177.96.0/19
-        35.191.0.0/16
-        130.211.0.0/22
-```
+## collect_js.sh
+Use `https://github.com/hakluke/hakrawler` to recursively find javascript files, store them locally in a git repo and search them fore some potentially interesting regex patterns.
 
 ## URL sieve
 Filter URLs that only differ in queries while collecting all queries. Example:
