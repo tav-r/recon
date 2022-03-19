@@ -50,7 +50,8 @@ def resolve(domain: str, type_: str):
     except (
         dns.resolver.NXDOMAIN,
         dns.exception.Timeout,
-        dns.resolver.NoNameservers
+        dns.resolver.NoNameservers,
+        dns.resolver.NoAnswer
     ):
         raise ValueError(f"Could not resolve domain '{domain}'")
 
