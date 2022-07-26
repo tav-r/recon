@@ -9,7 +9,6 @@ from typing import Any, Optional, Callable, Iterable, TypeVar, List, Dict
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 
 
-# some interesting domains, maybe add some more later on
 RT = TypeVar("RT")
 
 
