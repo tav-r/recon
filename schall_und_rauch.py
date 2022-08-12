@@ -2,6 +2,7 @@ import functools
 import json
 import fileinput
 import ssl
+import io
 import OpenSSL.crypto as crypto
 
 import dns
@@ -12,6 +13,7 @@ from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from functools import partial, reduce
 from ipaddress import AddressValueError, IPv4Address, IPv4Network,\
     IPv6Address, IPv6Network
+from itertools import cycle
 
 
 RT = TypeVar("RT")
@@ -31,11 +33,48 @@ def threaded(nthreads: int) -> Callable[
     return _g
 
 
+def next_nameserver():
+    nameservers = cycle([
+        "9.9.9.9",
+        "8.8.8.8",
+        "8.8.4.4",
+        "9.9.9.8",
+        "1.1.1.1",
+        "1.0.0.1",
+        "1.1.1.2",
+        "1.0.0.2",
+        "1.1.1.3",
+        "1.0.0.3",
+        "9.9.9.8",
+        "64.6.64.6",
+        "64.6.65.6",
+        "208.67.222.222",
+        "208.67.220.220",
+        "9.9.9.11",
+        "9.9.9.10",
+        "77.88.8.1",
+        "77.88.8.8",
+        "77.88.8.2",
+    ])
+
+    def _f():
+        return next(nameservers)
+
+    return _f
+
+
+next_nameserver = next_nameserver()
+
+
 def resolve(domain: str, type_: str) -> list[str]:
+    resolver = dns.resolver.Resolver(
+        filename=io.StringIO(f"nameserver {next_nameserver()}")
+    )
+
     try:
         return [
             d.to_text().split(" ")[-1] for a in
-            dns.resolver.resolve(domain, type_)
+            resolver.resolve(domain, type_, lifetime=.5)
             .response.answer for d in a
         ]
     except (
@@ -154,6 +193,13 @@ def get_cn(ip: str) -> tuple[str, list[str]]:
     return ip, list(cert_hostname.split("\n"))
 
 
+@threaded(20)
+def lookup(
+    domain: str
+) -> tuple[str, list[str]]:
+    return domain, resolve(domain, "A") + resolve(domain, "AAAA")
+
+
 if __name__ == "__main__":
     from sys import argv
 
@@ -172,3 +218,5 @@ if __name__ == "__main__":
             print(json.dumps(run_from_stdin(reverse), indent=4))
         case "sni":
             print(json.dumps(run_from_stdin(get_cn), indent=4))
+        case "lookup":
+            print(json.dumps(run_from_stdin(lookup), indent=4))
