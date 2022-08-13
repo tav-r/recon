@@ -11,10 +11,11 @@ pip install -r requirements.txt
 ```
 ### Usage
 ```
-nmap -oX scan scanme.com
+nmap -sV -sC -oX scan.xml scanme.org www.webscantest.com
 python3 nmap2cherrytree.py scan.xml > scan.ctd
 ```
 Then open `scan.ctd` in cherrytree
+![Screenshot cherrytree](nmap2cherrytree.png "Screenshot cherrytree")
 
 ## [redirects.sh](redirects.sh)
 Use [`gau`](https://github.com/lc/gau) and [`httpx`](https://github.com/projectdiscovery/httpx) to find URLs that might be used as open redirects.

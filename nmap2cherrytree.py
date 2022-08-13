@@ -142,10 +142,8 @@ def parse_nmap_xml(xml: ElementTree.Element)\
         hostsnames_root = [a for a in host if a.tag == "hostnames"]
 
         if hostsnames_root:
-            hostnames = [n for n in [
-                n.get("name") for h in hostsnames_root.pop()
-                for n in h if h.tag == "hostname"
-            ] if n]
+            hostnames = [n for n in [h.get("name")
+                                     for h in hostsnames_root.pop()] if n]
         else:
             hostnames = []
 
