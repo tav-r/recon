@@ -26,7 +26,7 @@ Usage: ./redirects.sh [-s|--subs] [-h|--help] [-k|--keep-temp] [-v|--verbose] DO
 ```
 
 ## [robots.py](robots.py)
-Get
+Probe URLs listed in `robots.txt`.
 
 ```bash
 $ printf "https://shop.tesla.com/\nhttps://www.tesla.com" | python3 robots.py
@@ -70,9 +70,6 @@ $ printf "https://shop.tesla.com/\nhttps://www.tesla.com" | python3 robots.py
     ]
 }
 ```
-
-
-I find this to be useful when collecting URLs with [gau](https://github.com/lc/gau) or [hakrawler](https://github.com/hakluke/hakrawler)
 
 ## [schall_und_rauch.py](schall_und_rauch.py)
 The script can be used to find domain names using various techniques:
