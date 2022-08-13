@@ -44,7 +44,8 @@ def crawl_robots_txt(host: str) -> tuple[str, list[dict[str, str]]]:
         ))
 
         probes = [cast(int, c.result()) for c in as_completed(
-            probe(line) for line in lines) if not c.exception()]
+            probe(line) if "*" not in line else "-"
+            for line in lines) if not c.exception()]
 
         return (
             (host, [
