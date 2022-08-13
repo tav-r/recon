@@ -19,7 +19,7 @@ Then open `scan.ctd` in cherrytree
 ![Screenshot cherrytree](nmap2cherrytree.png "Screenshot cherrytree")
 
 ## [redirects.sh](redirects.sh)
-Use [`gau`](https://github.com/lc/gau) and [`httpx`](https://github.com/projectdiscovery/httpx) to find URLs that might be used as open redirects.
+Use [`gau`](https://github.com/lc/gau) and [`httpx`](https://github.com/projectdiscovery/httpx) to find URLs that could possibly be used as open redirects.
 
 ```bash
 Usage: ./redirects.sh [-s|--subs] [-h|--help] [-k|--keep-temp] [-v|--verbose] DOMAIN OUTFILE
