@@ -33,7 +33,7 @@ def threaded(nthreads: int) -> Callable[
     return _g
 
 
-def next_nameserver():
+def generate_next_nameserver() -> Callable[[], str]:
     nameservers = cycle([
         "9.9.9.9",
         "8.8.8.8",
@@ -57,13 +57,13 @@ def next_nameserver():
         "77.88.8.2",
     ])
 
-    def _f():
+    def _f() -> str:
         return next(nameservers)
 
     return _f
 
 
-next_nameserver = next_nameserver()
+next_nameserver = generate_next_nameserver()
 
 
 def resolve(domain: str, type_: str) -> list[str]:
