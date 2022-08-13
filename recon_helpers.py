@@ -28,7 +28,7 @@ def run_from_iter(
             lambda x: x[1],
             (c.result() for c in as_completed(
                 f(name) for name in iter_
-            ) if not c.exception())
+            ))
         )
     )
 

@@ -34,41 +34,37 @@ $ printf "https://shop.tesla.com/\nhttps://www.tesla.com" | python3 robots.py
     "https://shop.tesla.com/": [
         {
             "tag": "Disallow",
-            "line": "https://shop.tesla.com//*.json",
-            "status_code": "403"
+            "url": "https://shop.tesla.com//*.json",
+            "status_code": "-1"
         }
     ],
     "https://www.tesla.com": [
         {
             "tag": "Allow",
-            "line": "https://www.tesla.com/misc/*.css$",
-            "status_code": "403"
+            "url": "https://www.tesla.com/themes/*.jpg",
+            "status_code": "-1"
         },
         {
             "tag": "Allow",
-            "line": "https://www.tesla.com/misc/*.css?",
-            "status_code": "403"
-        },
-        {
-            "tag": "Allow",
-            "line": "https://www.tesla.com/misc/*.js$",
-            "status_code": "403"
+            "url": "https://www.tesla.com/profiles/*.js$",
+            "status_code": "-1"
         },
 
         ...
 
         {
             "tag": "Disallow",
-            "line": "https://www.tesla.com/*/taxonomy/term/*",
+            "url": "https://www.tesla.com/node/",
             "status_code": "403"
         },
         {
             "tag": "Allow",
-            "line": "https://www.tesla.com/content/dam/tesla-site/",
+            "url": "https://www.tesla.com/content/dam/tesla-site/",
             "status_code": "403"
         }
     ]
 }
+
 ```
 
 ## [schall_und_rauch.py](schall_und_rauch.py)

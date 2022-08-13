@@ -1,7 +1,7 @@
 import requests
 import json
 
-from typing import Iterator, cast
+from typing import Iterator
 from recon_helpers import run_from_stdin, threaded
 from concurrent.futures import as_completed
 
@@ -15,8 +15,8 @@ def iter_stdin() -> Iterator:
 
 
 @threaded(20)
-def probe(url: str) -> int:
-    return requests.get(url).status_code
+def probe(tag: str, url: str) -> tuple[str, str, str]:
+    return tag, url, str(requests.get(url).status_code)
 
 
 def parse_robots(robots_txt: str, base_url: str) -> Iterator[tuple[str, str]]:
@@ -38,20 +38,24 @@ def crawl_robots_txt(host: str) -> tuple[str, list[dict[str, str]]]:
     res = requests.get(url)
 
     if res.ok:
-        tags, lines = zip(*parse_robots(
+        lines = parse_robots(
             res.content.decode(),
             host
-        ))
+        )
 
-        probes = [cast(int, c.result()) for c in as_completed(
-            probe(line) if "*" not in line else "-"
-            for line in lines) if not c.exception()]
+        @threaded(1)
+        def do_not_probe(tag: str, url: str) -> tuple[str, str, str]:
+            return tag, url, "-1"
+
+        probes = [
+            (lambda c: {"tag": c[0], "url": c[1], "status_code": c[2]})(
+                c.result()
+            ) for c in as_completed(
+                probe(tag, url) if "*" not in url else do_not_probe(tag, url)
+                for (tag, url) in lines) if not c.exception()]
 
         return (
-            (host, [
-                {"tag": tag, "line": line, "status_code": str(probe)}
-                for (tag, line, probe) in zip(tags, lines, probes)
-            ])
+            host, probes
         )
 
     return (host, [])
