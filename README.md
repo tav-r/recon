@@ -1,15 +1,16 @@
 # Overview
 This is a random collection of different recon tools I wrote. They are all not "large enough" to deserve an own repo but I find them quite handy.
 
-## [nmap2cherrytree.py](nmap2cherrytree.py)
-Convert XMLs from `nmap` scans into [cherrytree](https://www.giuspen.com/cherrytree/) files.
-### Installation
+To use the python tools, I recommend using virtual environments to install the dependencies:
+
 ```bash
 python3 -m venv .
 source bin/activate
 pip install -r requirements.txt
 ```
-### Usage
+## [nmap2cherrytree.py](nmap2cherrytree.py)
+Convert XMLs from `nmap` scans into [cherrytree](https://www.giuspen.com/cherrytree/) files.
+
 ```
 nmap -sV -sC -oX scan.xml scanme.org www.webscantest.com
 python3 nmap2cherrytree.py scan.xml > scan.ctd
@@ -20,24 +21,56 @@ Then open `scan.ctd` in cherrytree
 ## [redirects.sh](redirects.sh)
 Use [`gau`](https://github.com/lc/gau) and [`httpx`](https://github.com/projectdiscovery/httpx) to find URLs that might be used as open redirects.
 
-### Usage
 ```bash
 Usage: ./redirects.sh [-s|--subs] [-h|--help] [-k|--keep-temp] [-v|--verbose] DOMAIN OUTFILE
 ```
 
-## spfips.sh
-Removed, parsing SPF records with bash is annoying and error prone, hence this script was buggy. Check out [mail-autoaudit's](https://github.com/tav-r/mail-autoaudit) `dns` subcommand.
+## [robots.py](robots.py)
+Get
 
-## URL sieve
-Filter URLs that only differ in queries while collecting all queries. Example:
+```bash
+$ printf "https://shop.tesla.com/\nhttps://www.tesla.com" | python3 robots.py
+{
+    "https://shop.tesla.com/": [
+        {
+            "tag": "Disallow:",
+            "line": "https://shop.tesla.com//*.json",
+            "status_code": "403"
+        }
+    ],
+    "https://www.tesla.com": [
+        {
+            "tag": "Allow:",
+            "line": "https://www.tesla.com/misc/*.css$",
+            "status_code": "403"
+        },
+        {
+            "tag": "Allow:",
+            "line": "https://www.tesla.com/misc/*.css?",
+            "status_code": "403"
+        },
+        {
+            "tag": "Allow:",
+            "line": "https://www.tesla.com/misc/*.js$",
+            "status_code": "403"
+        },
+
+        ...
+
+        {
+            "tag": "Disallow:",
+            "line": "https://www.tesla.com/*/taxonomy/term/*",
+            "status_code": "403"
+        },
+        {
+            "tag": "Allow:",
+            "line": "https://www.tesla.com/content/dam/tesla-site/",
+            "status_code": "403"
+        }
+    ]
+}
 ```
-$ echo "http://google.com/?q=test
-  http://google.com/?r=something
-  https://example.com/
-  http://google.com/?q=something&r=or&s=else" | python3 url_sieve.py
-http://google.com/?q=test&r=something&s=else
-https://example.com/
-```
+
 
 I find this to be useful when collecting URLs with [gau](https://github.com/lc/gau) or [hakrawler](https://github.com/hakluke/hakrawler)
 
@@ -67,7 +100,7 @@ $ echo -n 140.82.121.0/24 | python3 names.py cidr | python3 names.py sni
         "*.github.com"
     ],
 
-  <snip>
+    ...
 
 }
 $ echo -n 140.82.121.0/24 | python3 names.py cidr | python3 names.py reverse
@@ -100,7 +133,7 @@ $ echo -n 140.82.121.0/24 | python3 names.py cidr | python3 names.py reverse
         "lb-140-82-121-35-fra.github.com."
     ],
 
-    <snip>
+    ...
     
 }
 $ subfinder -silent -d tesla.com | python3 names.py cnames | head -n 100
@@ -142,6 +175,6 @@ $ subfinder -silent -d tesla.com | python3 names.py cnames | head -n 100
         "e1792.dscx.akamaiedge.net."
     ],
  
-    <snip>
+    ...
 
 ```

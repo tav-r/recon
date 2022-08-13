@@ -1,8 +1,9 @@
 import requests
 import json
-import argparse
 
-from typing import Iterator, Optional, Iterable
+from typing import Iterator, cast
+from recon_helpers import run_from_stdin, threaded
+from concurrent.futures import as_completed
 
 
 def iter_stdin() -> Iterator:
@@ -13,11 +14,12 @@ def iter_stdin() -> Iterator:
             return
 
 
-def probe(url: str):
+@threaded(20)
+def probe(url: str) -> int:
     return requests.get(url).status_code
 
 
-def parse_robots(robots_txt: str, base_url: str):
+def parse_robots(robots_txt: str, base_url: str) -> Iterator[tuple[str, str]]:
     for line in filter(
         lambda l:
         l.split(" ")[0] in ["Allow:", "Disallow:"], robots_txt.split("\n")
@@ -30,50 +32,29 @@ def parse_robots(robots_txt: str, base_url: str):
             ...
 
 
-def crawl_robots_txt(domain: str, port: Optional[int] = None, no_https=False):
-    port_str = "" if not port else f":{port}"
-    scheme = "https" if not no_https else "http"
-    base_url = f"{scheme}://{domain}{port_str}"
-    url = f"{base_url}/robots.txt"
+@threaded(5)
+def crawl_robots_txt(host: str) -> tuple[str, list[dict[str, str]]]:
+    url = f"{host}/robots.txt"
     res = requests.get(url)
 
     if res.ok:
-        return {
-            url: [
-                (cat, line, probe(line))
-                for cat, line in parse_robots(
-                    res.content.decode(),
-                    base_url
-                )
-            ]
-        }
+        tags, lines = zip(*parse_robots(
+            res.content.decode(),
+            host
+        ))
 
+        probes = [cast(int, c.result()) for c in as_completed(
+            probe(line) for line in lines) if not c.exception()]
 
-def run_from_iter(
-    iter_: Iterable,
-    port: int=443,
-    no_https: bool=False
-):
-    return {domain: crawl_robots_txt(
-        domain, port, no_https
-    ) for domain in iter_}
+        return (
+            (host, [
+                {"tag": tag, "line": line, "status_code": str(probe)}
+                for (tag, line, probe) in zip(tags, lines, probes)
+            ])
+        )
 
-
-def run_from_stdin():
-    ap = argparse.ArgumentParser()
-    ap.add_argument(
-        "-p", "--port", dest="port", help="http port to use", type=int,
-        default=None
-    )
-    ap.add_argument(
-        "-n", "--no-https", dest="no_https", help="use unencrypted HTTP",
-        default=False, action="store_true"
-    )
-
-    args = ap.parse_args()
-
-    return run_from_iter(iter_stdin(), args.port, args.no_https)
+    return (host, [])
 
 
 if __name__ == "__main__":
-    print(json.dumps(run_from_stdin(), indent=4))
+    print(json.dumps(run_from_stdin(crawl_robots_txt), indent=4))

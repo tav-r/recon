@@ -8,3 +8,4 @@ share/
 *.ctd
 *.nmap
 *.gnmap
+__pycache__

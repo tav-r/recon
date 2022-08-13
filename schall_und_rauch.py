@@ -1,6 +1,4 @@
-import functools
 import json
-import fileinput
 import ssl
 import io
 import OpenSSL.crypto as crypto
@@ -8,29 +6,13 @@ import OpenSSL.crypto as crypto
 import dns
 import dns.resolver
 
-from typing import Any, Iterator, Optional, Callable, Iterable, TypeVar
-from concurrent.futures import Future, ThreadPoolExecutor, as_completed
+from typing import Any, Iterator, Optional, Callable
 from functools import partial, reduce
 from ipaddress import AddressValueError, IPv4Address, IPv4Network,\
     IPv6Address, IPv6Network
 from itertools import cycle
 
-
-RT = TypeVar("RT")
-
-
-def threaded(nthreads: int) -> Callable[
-    [Callable[..., Any]], Callable[..., Any]
-]:
-    def _g(f: Callable[..., Any]) -> Callable[..., Any]:
-        pool = ThreadPoolExecutor(nthreads)
-
-        @functools.wraps(f)
-        def _f(*args: list[Any], **kwargs: dict[str, Any]) -> Future[RT]:
-            return pool.submit(f, *args, **kwargs)
-
-        return _f
-    return _g
+from recon_helpers import threaded, run_from_stdin
 
 
 def generate_next_nameserver() -> Callable[[], str]:
@@ -107,36 +89,6 @@ def reverse_lookup_ipv6(ip: str) -> tuple[str, list[str]]:
         f"{'.'.join(parsed_ip.exploded.replace(':', '')[::-1])}.ip6.arpa",
         "PTR"
     )
-
-
-def run_from_iter(
-    f: Callable[[str], Future[tuple[str, list[str]]]],
-    iter_: Iterable,
-) -> dict[str, list[str]]:
-    return dict(
-        filter(
-            lambda x: x[1],
-            (c.result() for c in as_completed(
-                f(name) for name in iter_
-            ) if not c.exception())
-        )
-    )
-
-
-def run_from_stdin(
-    f: Callable[[str], Future[tuple[str, list[str]]]]
-) -> dict[str, list[str]]:
-    try:
-        with fileinput.input() as file_input:
-            res = run_from_iter(
-                f,
-                [n.strip() for n in file_input if n.strip()]
-            )
-
-    except KeyboardInterrupt:
-        print("Interrupted, exiting...")
-
-    return res
 
 
 def is_ip(address: str, type_: Callable) -> bool:
