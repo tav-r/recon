@@ -7,19 +7,14 @@ author: tav
 
 import sys
 import time
-import xml
+from typing import Iterator
+from xml.etree import ElementTree
 import itertools
-import pprint
-from libnmap.parser import NmapParser
 
 
-def is_http(pnum, transpp):
-    """Helper method to check if portnumber/transportprotocol may be http"""
-    return pnum in [80, 443, 8000, 8080, 8888] and transpp == "tcp"
-
-
-def set_default_keys(xml_node):
+def set_default_keys(xml_node: ElementTree.Element) -> None:
     """Set node keys to default."""
+
     xml_node.set("foreground", "")
     xml_node.set("is_bold", "False")
     xml_node.set("prog_lang", "custom_colors")
@@ -28,24 +23,27 @@ def set_default_keys(xml_node):
     xml_node.set("ts_lastsave", "{:.2f}".format(time.time()))
 
 
-def new_host_node(xml_root, nmap_host, node_id):
+def new_host_node(
+    xml_root: ElementTree.Element,
+    addr: str,
+    hostnames: list[str],
+    node_id: int
+) -> ElementTree.Element:
     """
     Add a host node
 
     Args:
-        xml_root (xml.etree.ElementTree.Element): the cherrytree root node
+        xml_root (ElementTree.Element): the cherrytree root node
         nmap_host (libnmap.objects.host.NmapHost): the host represented by this
                                                    node
         node_id (int): id of the new node, must be unique
     """
-    xml_host = xml.etree.ElementTree.SubElement(xml_root, "node")
 
-    xml_host_name = nmap_host.address
-    if nmap_host.hostnames:
-        xml_host_name += " (" + ", ".join(nmap_host.hostnames) + ")"
+    xml_host = ElementTree.SubElement(xml_root, "node")
 
-    rich_text = xml.etree.ElementTree.SubElement(xml_host, "rich_text")
-    rich_text.text = pprint.pformat(nmap_host.scripts_results)
+    xml_host_name = addr
+    if hostnames:
+        xml_host_name += " (" + ", ".join(hostnames) + ")"
 
     xml_host.set("custom_icon_id", "21")
     xml_host.set("name", xml_host_name)
@@ -57,7 +55,7 @@ def new_host_node(xml_root, nmap_host, node_id):
     return xml_host
 
 
-def set_port_info(port_node, pnum, transpp):
+def get_port_icon(pnum: int, proto: str) -> int:
     """
     Set information on port node.
 
@@ -66,26 +64,39 @@ def set_port_info(port_node, pnum, transpp):
         pnum (int): port number
         transpp (str): name of transport layer protocol (normally tcp or udp)
     """
-    if is_http(pnum, transpp):
-        port_node.set("custom_icon_id", "17")
-    elif pnum in [22] or (pnum in [23] and transpp == "tcp"):
-        port_node.set("custom_icon_id", "22")
-    elif pnum in [21] or (pnum in [20] and
-                          transpp == "udp"):
-        port_node.set("custom_icon_id", "44")
-    elif pnum in [135, 136, 137, 138, 139, 445] or\
-            pnum in [161] and transpp == "udp":
-        port_node.set("custom_icon_id", "42")
-    elif pnum in [53]:
-        port_node.set("custom_icon_id", "39")
-    elif pnum in [25, 110, 143, 465, 587, 993, 995] and\
-            transpp == "tcp":
-        port_node.set("custom_icon_id", "16")
-    else:
-        port_node.set("custom_icon_id", "38")
+
+    match pnum:
+        case 80 | 8080 | 8000 | 8888 | 443 | 8443:
+            return 17
+        case 21:
+            return 44
+        case 20:
+            if proto == "udp":
+                return 44
+        case 22 | 23: return 17
+        case 135 | 136 | 137 | 138 | 139 | 445:
+            return 42
+        case 161:
+            if proto == "udp":
+                return 42
+        case 53:
+            return 39
+        case 25 | 110 | 143 | 465 | 587 | 993 | 995:
+            if proto == "tcp":
+                return 16
+
+    return 38
 
 
-def new_port_node(xml_host, nmap_host, port_tuple, node_id):
+def new_port_node(
+    xml_host: ElementTree.Element,
+    node_id: int,
+    proto: str,
+    portid: int,
+    service: str,
+    script_result: str,
+    state: str
+) -> ElementTree.Element:
     """
     Add a new port subnode to a host node.
 
@@ -94,72 +105,113 @@ def new_port_node(xml_host, nmap_host, port_tuple, node_id):
                                                   should associated with
         nmap_host (libnmap.objects.host.NmapHost): host from nmap scan result
     """
-    portnumber, transport_protocol = port_tuple[0], port_tuple[1]
 
-    xml_port = xml.etree.ElementTree.SubElement(xml_host, "node")
-    xml_port.set("name", str(portnumber))
-
-    service = nmap_host.get_service(portnumber)
+    xml_port = ElementTree.SubElement(xml_host, "node")
+    xml_port.set("name", f"{portid} ({proto})")
 
     set_default_keys(xml_port)
 
     if service:
-        rich_text = xml.etree.ElementTree.SubElement(xml_port, "rich_text")
-        rich_text.text = "{} ({}): {} - {}"\
-                         .format(service.protocol,
-                                 "open" if service.open() else "not open",
-                                 service.protocol,
-                                 service.banner)
-        xml_port.set("tags", service.protocol)
+        rich_text = ElementTree.SubElement(xml_port, "rich_text")
+        rich_text.text = "{} ({}): {}\n\n{}"\
+                         .format(proto,
+                                 state,
+                                 service,
+                                 script_result)
+        xml_port.set("tags", service)
 
-    set_port_info(xml_port, portnumber, transport_protocol)
-
-    if is_http(portnumber, transport_protocol):
-        prefix = "https://" if portnumber == 443 else "http://"
-        rich_text.text += "\n" + prefix + nmap_host.address + ":" +\
-                          str(portnumber) + "/"
+    xml_port.set("custom_icon_id", str(get_port_icon(portid, service)))
 
     xml_port.set("unique_id", str(node_id))
 
     return xml_port
 
 
-def convert_file(files):
+def parse_nmap_xml(xml: ElementTree.Element)\
+        -> Iterator[
+            tuple[str, list[str], list[tuple[str, int, str, str, str]]]
+]:
+    hosts = [
+        h for h in xml if h.tag == "host"
+    ]
+
+    for host in hosts:
+        opt_address = [a for a in host if a.tag == "address"].pop().get("addr")
+        address = opt_address if opt_address else ""
+
+        hostsnames_root = [a for a in host if a.tag == "hostnames"]
+
+        if hostsnames_root:
+            hostnames = [n for n in [
+                n.get("name") for h in hostsnames_root.pop()
+                for n in h if h.tag == "hostname"
+            ] if n]
+        else:
+            hostnames = []
+
+        ports_root = [a for a in host if a.tag == "ports"].pop()
+        ports = [
+            (proto, int(portid), output, service, state)
+            for
+            (proto, portid, output, service, state) in [
+                (
+                    p.get("protocol"),
+                    p.get("portid"),
+                    [n for n in (s.get("name")
+                                 for s in p if s.tag == "service") if n].pop(),
+                    "\n".join(
+                        s for s in (
+                            s.get("output") for s in p if s.tag == "script"
+                        ) if s
+                    ),
+                    [n for n in (s.get("state")
+                                 for s in p if s.tag == "state") if n].pop()
+                ) for p in ports_root if p.tag == "port"
+            ] if proto and portid]
+
+        yield (address, hostnames, ports)
+
+
+def convert_file(files: list[str]) -> ElementTree.Element:
     """
     Convert nmap scans in xml formt into cherrytree xmls.
 
     Args:
         files (list[str]): list of filesystem paths of nmap scan xmls
     """
-    id_counter = itertools.count(start=1, step=1)
-    xml_root = xml.etree.ElementTree.Element("cherrytree")
 
-    def get_reports():
+    id_counter = itertools.count(start=1, step=1)
+    xml_root = ElementTree.Element("cherrytree")
+
+    def get_reports() -> Iterator[
+        Iterator[
+            tuple[str, list[str], list[tuple[str, int, str, str, str]]]
+        ]
+    ]:
         for filename in files:
             print("[*] parsing file {}".format(filename), file=sys.stderr)
-            yield NmapParser.parse_fromfile(filename)
+            with open(filename, "r") as f:
+                yield parse_nmap_xml(ElementTree.XML(f.read()))
 
-    hosts = []
-    for scanned_host in ([report.hosts for report in get_reports()]):
-        hosts += scanned_host
+    results = sorted(list(h for r in get_reports()
+                     for h in r), key=lambda x: x[0][0])
 
-    sorted_hosts = sorted(hosts, key=lambda x: [int(e)
-                                                for e in x.address.split(".")])
+    for host_result in results:
+        addr, hostnames, ports = host_result
+        host = new_host_node(xml_root, addr, hostnames, next(id_counter))
 
-    for host_result in sorted_hosts:
-        host = new_host_node(xml_root, host_result, next(id_counter))
-
-        for port in host_result.get_ports():
-            new_port_node(host, host_result, port, next(id_counter))
+        for port in ports:
+            new_port_node(host, next(id_counter), *port)
 
     return xml_root
 
 
-def main():
+def main() -> None:
     """
     Main method that should be called for standalone usage (I do not know which
     other usage there might be)
     """
+
     if not sys.argv[1:]:
         print("Usage: {} [scan1.xml] [scan2.xml] ... [scanN.xml]"
               .format(sys.argv[0]), file=sys.stderr)
@@ -167,7 +219,7 @@ def main():
 
     cherrytree_xml = convert_file(sys.argv[1:])
 
-    print(xml.etree.ElementTree.tostring(cherrytree_xml).decode())
+    print(ElementTree.tostring(cherrytree_xml).decode())
 
 
 if __name__ == "__main__":
