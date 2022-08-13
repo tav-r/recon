@@ -25,7 +25,7 @@ def parse_robots(robots_txt: str, base_url: str) -> Iterator[tuple[str, str]]:
         l.split(" ")[0] in ["Allow:", "Disallow:"], robots_txt.split("\n")
     ):
         try:
-            yield (lambda l: (l[0].strip(), f"{base_url}{l[1].strip()}"))(
+            yield (lambda l: (l[0].strip()[:-1], f"{base_url}{l[1].strip()}"))(
                 line.split(" ")
             )
         except IndexError:

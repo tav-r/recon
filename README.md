@@ -33,24 +33,24 @@ $ printf "https://shop.tesla.com/\nhttps://www.tesla.com" | python3 robots.py
 {
     "https://shop.tesla.com/": [
         {
-            "tag": "Disallow:",
+            "tag": "Disallow",
             "line": "https://shop.tesla.com//*.json",
             "status_code": "403"
         }
     ],
     "https://www.tesla.com": [
         {
-            "tag": "Allow:",
+            "tag": "Allow",
             "line": "https://www.tesla.com/misc/*.css$",
             "status_code": "403"
         },
         {
-            "tag": "Allow:",
+            "tag": "Allow",
             "line": "https://www.tesla.com/misc/*.css?",
             "status_code": "403"
         },
         {
-            "tag": "Allow:",
+            "tag": "Allow",
             "line": "https://www.tesla.com/misc/*.js$",
             "status_code": "403"
         },
@@ -58,12 +58,12 @@ $ printf "https://shop.tesla.com/\nhttps://www.tesla.com" | python3 robots.py
         ...
 
         {
-            "tag": "Disallow:",
+            "tag": "Disallow",
             "line": "https://www.tesla.com/*/taxonomy/term/*",
             "status_code": "403"
         },
         {
-            "tag": "Allow:",
+            "tag": "Allow",
             "line": "https://www.tesla.com/content/dam/tesla-site/",
             "status_code": "403"
         }
