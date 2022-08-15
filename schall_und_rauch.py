@@ -17,26 +17,31 @@ from recon_helpers import threaded, run_from_stdin
 
 def generate_next_nameserver() -> Callable[[], str]:
     nameservers = cycle([
-        "9.9.9.9",
-        "8.8.8.8",
-        "8.8.4.4",
-        "9.9.9.8",
-        "1.1.1.1",
-        "1.0.0.1",
-        "1.1.1.2",
-        "1.0.0.2",
-        "1.1.1.3",
-        "1.0.0.3",
-        "9.9.9.8",
-        "64.6.64.6",
-        "64.6.65.6",
-        "208.67.222.222",
-        "208.67.220.220",
-        "9.9.9.11",
-        "9.9.9.10",
-        "77.88.8.1",
-        "77.88.8.8",
-        "77.88.8.2",
+        "8.8.8.8",  # Google
+        "8.8.4.4",  # Google
+        "1.1.1.1",  # Cloudflare
+        "1.0.0.1",  # Cloudflare
+        "94.140.14.140",  # AdGuard
+        "94.140.14.141",  # AdGuard
+        "64.6.64.6",  # Neustar
+        "64.6.65.6",  # Neustar
+        "156.154.70.1",  # Neustar
+        "156.154.71.1",  # Neustar
+        "156.154.70.2",  # Neustar
+        "156.154.71.2",  # Neustar
+        "208.67.222.222",  # OpenDNS
+        "208.67.220.220",  # OpenDNS
+        "9.9.9.8",  # Quad9
+        "9.9.9.9",  # Quad9
+        "9.9.9.11",  # Quad9
+        "9.9.9.10",  # Quad9
+        "77.88.8.1",  # yandex
+        "77.88.8.8",  # yandex
+        "77.88.8.2",  # yandex
+        "185.121.177.177",  # OpenNIC
+        "169.239.202.202",  # OpenNIC
+        "185.228.168.9"  # CleanBrowsing
+        "185.228.169.9"  # CleanBrowsing
     ])
 
     def _f() -> str:
@@ -136,16 +141,19 @@ def unfold_cidr(range: str) -> tuple[str, list[str]]:
 
 
 @threaded(40)
-def get_cn(ip: str) -> tuple[str, list[str]]:
+def sni(ip: str) -> tuple[str, list[str]]:
     dst = (ip, 443)
-    cert = ssl.get_server_certificate(dst, timeout=.5).encode()
+    try:
+        cert = ssl.get_server_certificate(dst, timeout=.5).encode()
+    except (TimeoutError, ConnectionRefusedError):
+        return ip, []
     x509 = crypto.load_certificate(crypto.FILETYPE_PEM, cert)
     cert_hostname = x509.get_subject().CN
 
     return ip, list(cert_hostname.split("\n"))
 
 
-@threaded(20)
+@threaded(25)
 def lookup(
     domain: str
 ) -> tuple[str, list[str]]:
@@ -169,6 +177,6 @@ if __name__ == "__main__":
         case "reverse":
             print(json.dumps(run_from_stdin(reverse), indent=4))
         case "sni":
-            print(json.dumps(run_from_stdin(get_cn), indent=4))
+            print(json.dumps(run_from_stdin(sni), indent=4))
         case "lookup":
             print(json.dumps(run_from_stdin(lookup), indent=4))
