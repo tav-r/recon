@@ -150,7 +150,10 @@ def sni(ip: str) -> tuple[str, list[str]]:
     x509 = crypto.load_certificate(crypto.FILETYPE_PEM, cert)
     cert_hostname = x509.get_subject().CN
 
-    return ip, list(cert_hostname.split("\n"))
+    if cert_hostname:
+        return ip, list(cert_hostname.split("\n"))
+    else:
+        return ip, []
 
 
 @threaded(25)
