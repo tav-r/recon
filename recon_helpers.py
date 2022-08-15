@@ -22,7 +22,7 @@ def threaded(nthreads: int) -> Callable[
 def run_from_iter(
     f: Callable[[str], Future[tuple[str, Any]]],
     iter_: Iterable,
-) -> dict[str, list[str]]:
+) -> dict[str, list[Any]]:
     return dict(
         filter(
             lambda x: x[1],
@@ -34,8 +34,8 @@ def run_from_iter(
 
 
 def run_from_stdin(
-    f: Callable[[str], Future[tuple[str, list[str]]]]
-) -> dict[str, list[str]]:
+    f: Callable[[str], Future[tuple[str, Any]]]
+) -> dict[str, list[Any]]:
     try:
         with fileinput.input() as file_input:
             res = run_from_iter(
