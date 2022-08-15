@@ -145,7 +145,7 @@ def sni(ip: str) -> tuple[str, list[str]]:
     dst = (ip, 443)
     try:
         cert = ssl.get_server_certificate(dst, timeout=.5).encode()
-    except (TimeoutError, ConnectionRefusedError, OSError):
+    except (TimeoutError, ConnectionRefusedError, OSError, BrokenPipeError):
         return ip, []
     x509 = crypto.load_certificate(crypto.FILETYPE_PEM, cert)
     cert_hostname = x509.get_subject().CN
