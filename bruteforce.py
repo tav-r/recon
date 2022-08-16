@@ -9,6 +9,9 @@ from itertools import count
 import json
 
 
+requests.packages.urllib3.disable_warnings()
+
+
 def randstr(n: int) -> str:
     return "".join(c for (c, _) in zip(
         filter(
@@ -22,7 +25,7 @@ def randstr(n: int) -> str:
 @threaded(20)
 def get(url: str) -> tuple[str, Optional[Response]]:
     try:
-        res = requests.get(url, allow_redirects=True, timeout=.5)
+        res = requests.get(url, allow_redirects=True, timeout=2, verify=False)
     except requests.exceptions.RequestException:
         return url, None
 
@@ -40,14 +43,22 @@ def bruteforce(url: str) -> Callable[
 
 
 def filter_len_outliers(
+    baseline: int,
     success: list[tuple[str, Response]]
 ) -> list[tuple[str, int, int]]:
     assert success
     assert all(success)
 
-    mean = sum(len(r.content) for (_, r) in success) / len(success)
-    variance = sum((mean - len(r.content))**2 for (_, r)
-                   in success) / len(success)
+    baseline_weight = 1
+
+    mean = (sum(len(r.content) for (_, r) in success) +
+            len(success) * baseline_weight * baseline) /\
+        (len(success) * (baseline_weight + 1))
+
+    variance = (sum((mean - len(r.content))**2 for (_, r)
+                    in success) + (mean - baseline)**2 * baseline_weight) /\
+        (len(success) * (baseline_weight + 1))
+
     standard_deviation: float = variance ** (1/2)
 
     if not standard_deviation:
@@ -65,13 +76,15 @@ def filter_len_outliers(
 def evaluate(paths: list[str]) -> Callable[
     [str], Future[tuple[str, list[str]]]
 ]:
-    @threaded(10)
+    @ threaded(10)
     def _g(url: str) -> tuple[str, list[tuple[str, int, int]]]:
         try:
-            requests.get(
-                url + ("/" if not url.endswith("/") else "") + randstr(20),
+            baseline_res = requests.get(
+                url + ("/" if not url.endswith("/") else "") +
+                randstr(30) + ".html",
                 allow_redirects=True,
-                timeout=.5
+                timeout=2,
+                verify=False
             )
         except requests.exceptions.RequestException:
             return url, []
@@ -83,7 +96,7 @@ def evaluate(paths: list[str]) -> Callable[
         ]
 
         if success:
-            return url, filter_len_outliers(success)
+            return url, filter_len_outliers(len(baseline_res.content), success)
 
         return url, []
 
