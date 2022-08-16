@@ -156,7 +156,7 @@ def sni(ip: str) -> tuple[str, list[str]]:
         return ip, []
 
 
-@threaded(25)
+@threaded(40)
 def lookup(
     domain: str
 ) -> tuple[str, list[str]]:

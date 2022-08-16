@@ -22,10 +22,11 @@ def threaded(nthreads: int) -> Callable[
 def run_from_iter(
     f: Callable[[str], Future[tuple[str, Any]]],
     iter_: Iterable,
+    result_filter: Callable[[tuple[str, Any]], bool] = lambda x: True
 ) -> dict[str, list[Any]]:
     return dict(
         filter(
-            lambda x: x[1],
+            result_filter,
             (c.result() for c in as_completed(
                 f(name) for name in iter_
             ))
@@ -40,7 +41,8 @@ def run_from_stdin(
         with fileinput.input() as file_input:
             res = run_from_iter(
                 f,
-                [n.strip() for n in file_input if n.strip()]
+                [n.strip() for n in file_input if n.strip()],
+                lambda x: x[1]
             )
 
     except KeyboardInterrupt:

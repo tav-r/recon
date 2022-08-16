@@ -1,5 +1,5 @@
 from concurrent.futures import Future
-from typing import Callable, cast
+from typing import Callable, Optional, cast
 import requests
 from requests import Response
 from recon_helpers import threaded, run_from_stdin, run_from_iter
@@ -20,31 +20,45 @@ def randstr(n: int) -> str:
 
 
 @threaded(20)
-def get(url: str) -> tuple[str, Response]:
-    res = requests.get(url, allow_redirects=True)
+def get(url: str) -> tuple[str, Optional[Response]]:
+    try:
+        res = requests.get(url, allow_redirects=True, timeout=.5)
+    except requests.exceptions.RequestException:
+        return url, None
+
     return url, res
 
 
 def bruteforce(url: str) -> Callable[
-    [str], Future[tuple[str, tuple[int, int]]]
+    [str], Future[tuple[str, Optional[Response]]]
 ]:
-    def _f(path: str) -> Future[tuple[str, tuple[int, int]]]:
-        return get(url + ("/" if not url.endswith("/") else "") + path)
+    def _f(path: str) -> Future[tuple[str, Optional[Response]]]:
+        return get(url + ("/" if not url.endswith("/") else "") +
+                   (path[1:] if path.startswith("/") else path))
 
     return _f
 
 
-def filter_by_avg_len(success: list[tuple[str, Response]]) -> list[str]:
-    avg_len = sum(len(r.content) for (_, r) in success) / len(success)
-    return [p for (p, res) in success
-            if len(res.content) > avg_len * 1.1
-            or len(res.content) < avg_len * 0.9
-            ]
+def filter_len_outliers(
+    success: list[tuple[str, Response]]
+) -> list[tuple[str, int, int]]:
+    assert success
+    assert all(success)
 
+    mean = sum(len(r.content) for (_, r) in success) / len(success)
+    variance = sum((mean - len(r.content))**2 for (_, r)
+                   in success) / len(success)
+    standard_deviation: float = variance ** (1/2)
 
-def filter_by_status_code(success: list[tuple[str, Response]]) -> list[str]:
+    if not standard_deviation:
+        return []
+
+    def standard_score(cl: int) -> float:
+        return (cl - mean) / standard_deviation
+
     return [
-        p for (p, s) in success if s.status_code == 200
+        (p, res.status_code, len(res.content)) for (p, res) in success
+        if res and (abs(standard_score(len(res.content))) > 0.5)
     ]
 
 
@@ -52,23 +66,26 @@ def evaluate(paths: list[str]) -> Callable[
     [str], Future[tuple[str, list[str]]]
 ]:
     @threaded(10)
-    def _g(url: str) -> tuple[str, list[str]]:
-        res = requests.get(
-            url + ("/" if not url.endswith("/") else "") + randstr(20)
-        )
-
-        if res.status_code == 200:
-            res_filter = filter_by_avg_len
-        else:
-            res_filter = filter_by_status_code
+    def _g(url: str) -> tuple[str, list[tuple[str, int, int]]]:
+        try:
+            requests.get(
+                url + ("/" if not url.endswith("/") else "") + randstr(20),
+                allow_redirects=True,
+                timeout=.5
+            )
+        except requests.exceptions.RequestException:
+            return url, []
 
         success = [
             (p, cast(Response, res)) for (p, res) in run_from_iter(
-                bruteforce(url), paths
-            ).items() if cast(Response, res).status_code == 200
+                bruteforce(url), paths, lambda x: x[1] is not None
+            ).items()
         ]
 
-        return url, res_filter(success)
+        if success:
+            return url, filter_len_outliers(success)
+
+        return url, []
 
     return _g
 
