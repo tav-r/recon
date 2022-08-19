@@ -10,7 +10,7 @@ VERBOSE=false
 #####################
 
 function print_usage {
-    echo "Usage: $SCRIPTNAME [-s|--subs] [-h|--help] [-k|--keep-temp] [-v|--verbose] DOMAIN OUTFILE"
+    echo "Usage: $SCRIPTNAME [-s|--subs] [-h|--help] [-k|--keep-temp] [-v|--verbose] DOMAIN"
 }
 
 function run_gau {
