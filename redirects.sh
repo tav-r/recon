@@ -4,7 +4,7 @@
 SUBS=false
 KEEP_TEMP=false
 POSITIONAL=()
-REGEX='[?,&](back|go|goto|goback|return|returnto|return_to|returnurl|returnuri|return_url|return_path|redi|redirect|redirect_url|redirect_uri|r_url|rurl|locationurl|locationuri|next|dest|destination|checkout_url|continue|url)='
+REGEX='[\?,&][^&\?]+=(http|/|%2f|%2F)'
 SCRIPTNAME=$0
 VERBOSE=false
 #####################
@@ -25,29 +25,38 @@ function run_gau {
     eval $CMD
 }
 
+function run_waybackurls {
+    SUBS=$1  # boolean, search subdomains too
+
+    if [ $SUBS = true ]; then
+        CMD="waybackurls $DOMAIN"
+    else
+        CMD="waybackurls --no-subs $DOMAIN"
+    fi
+
+    eval $CMD
+}
+
 function main {
     DOMAIN=$1  # string, domain to search
-    OUTFILE=$2  # string, file to write result to
 
-    TMPFILE="/tmp/$DOMAIN.gau.tmp"
+    TMPFILE=$(mktemp)
 
     UNWANTED_STATUS='(404|403)' 
 
-    $VERBOSE && echo "[*] gathering URLs"
+    $VERBOSE && echo "[*] gathering URLs" >&2
 
     run_gau $SUBS | sort -u > $TMPFILE
+    run_waybackurls $SUBS | sort -u >> $TMPFILE
 
-    $VERBOSE && echo "[*] probing URLs, writing to $OUTFILE"
+    $VERBOSE && echo "[*] probing URLs, writing to $OUTFILE" >&2
 
     cat $TMPFILE | egrep "$REGEX" | httpx -silent -probe -status-code \
         | egrep '.+ .*SUCCESS' | egrep -v ".+ .*$UNWANTED_STATUS" \
-        | cut -d' ' -f1 > $OUTFILE
+        | cut -d' ' -f1
 
-    if [ $KEEP_TEMP = true ]; then
-        $VERBOSE && echo "[*] Leaving temporary file at '$TMPFILE'"
-    else
-        rm $TMPFILE
-    fi
+    $KEEP_TEMP && $VERBOSE && echo "[*] Leaving temporary file at '$TMPFILE'" >&2
+    $KEEP_TEMP || rm $TMPFILE
 }
 
 # Parse options
@@ -80,16 +89,20 @@ while [ -n "$1" ]; do
     esac
 done
 
-if (( ${#POSITIONAL[@]} != 2 )); then
+if (( ${#POSITIONAL[@]} != 1 )); then
     print_usage
     exit 1
 elif [ -z $(which gau) ]; then
     echo "'gau' is missing"
     exit 1
+elif [ -z $(which waybackurls) ]; then
+    echo "'waybackurls' is missing"
+    exit 1
+
 elif [ -z $(which httpx) ]; then
     echo "'httpx' is missing"
     exit 1
 fi
 
-main "${POSITIONAL[0]}" "${POSITIONAL[1]}" $VERBOSE
+main "${POSITIONAL[0]}" $VERBOSE
 
