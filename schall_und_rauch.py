@@ -1,3 +1,5 @@
+#!/usr/bin/python3
+
 import json
 import ssl
 import io
@@ -164,9 +166,19 @@ def lookup(
 
 
 if __name__ == "__main__":
-    from sys import argv
+    from sys import argv, stderr, exit as sys_exit
 
-    cmd = argv[1]
+    try:
+        cmd = argv[1]
+    except IndexError:
+        print(
+            "subcommand required, choose 'cnames', 'cidr',"
+            "\'reverse', 'sni' or 'lookup'",
+            file=stderr
+        )
+
+        sys_exit(-1)
+
     del(argv[1])
 
     match cmd:
@@ -183,3 +195,5 @@ if __name__ == "__main__":
             print(json.dumps(run_from_stdin(sni), indent=4))
         case "lookup":
             print(json.dumps(run_from_stdin(lookup), indent=4))
+        case default:
+            print("unknown command")
