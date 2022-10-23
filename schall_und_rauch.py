@@ -179,7 +179,7 @@ if __name__ == "__main__":
 
         sys_exit(-1)
 
-    del(argv[1])
+    del argv[1]
 
     match cmd:
         case "cnames":
