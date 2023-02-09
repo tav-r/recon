@@ -42,8 +42,10 @@ def generate_next_nameserver() -> Callable[[], str]:
         "77.88.8.2",  # yandex
         "185.121.177.177",  # OpenNIC
         "169.239.202.202",  # OpenNIC
-        "185.228.168.9"  # CleanBrowsing
+        "185.228.168.9",  # CleanBrowsing
         "185.228.169.9"  # CleanBrowsing
+        "193.110.81.0",  # dns0.eu
+        "185.253.5.0"  # dns0.eu
     ])
 
     def _f() -> str:
