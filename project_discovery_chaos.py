@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 """
 use project discoveries bug bounty collection (chaos.projectdiscovery.io)
 on the command line
