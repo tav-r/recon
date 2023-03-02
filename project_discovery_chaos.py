@@ -33,10 +33,13 @@ class Program:
 
     def __str__(self):
         return f"{self.name}:\n\tlast updated: {self.last_updated}\n\t"\
-            f"program url: {self.program_url}"
+            f"program url: {self.program_url}\n\t"\
+            f"number of domains: {self.count}"
 
 
 def get_programs() -> list[Program]:
+    """fetch and parse program data"""
+
     def fix_json(j: dict):
         if "swag" not in j.keys():
             j["swag"] = False
