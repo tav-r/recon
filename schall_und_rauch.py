@@ -40,12 +40,32 @@ def generate_next_nameserver() -> Callable[[], str]:
         "77.88.8.1",  # yandex
         "77.88.8.8",  # yandex
         "77.88.8.2",  # yandex
-        "185.121.177.177",  # OpenNIC
-        "169.239.202.202",  # OpenNIC
         "185.228.168.9",  # CleanBrowsing
         "185.228.169.9"  # CleanBrowsing
         "193.110.81.0",  # dns0.eu
-        "185.253.5.0"  # dns0.eu
+        "185.253.5.0",  # dns0.eu
+        "76.76.2.0",  # Control D
+        "76.76.10.0",  # Control D
+        "76.223.122.150",  # Alternate DNS
+        "94.140.14.14",  # AdGuard DNS
+        "94.140.15.15",  # AdGuard DNS
+        "212.89.130.180",  # InfoServe GMBH
+        "194.25.0.60",  # Deutsche Telekom
+        "194.25.0.68",  # Deutsche Telekom
+        "176.9.1.117",  # Hetzner
+        "195.186.1.111",  # Swisscom
+        "195.186.1.110",  # Swisscom
+        "195.186.4.110",  # Swisscom
+        "64.233.207.16",  # wideopenwest ?
+        "8.26.56.26",  # Comodo Secure DNS
+        "156.154.70.1",  # UltraDNS
+        "156.154.71.1",  # UltraDNS
+        "204.194.232.200",  # Cisco OpenDNS
+        "204.194.234.200",  # Cisco OpenDNS
+        "208.67.220.222",  # Cisco OpenDNS
+        "216.146.35.35",  # Norton ConnectSafe ?
+        "205.214.45.10",  # MegaPath ?
+        "24.113.32.29",  # Wave Broadband
     ])
 
     def _f() -> str:
