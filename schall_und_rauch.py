@@ -203,19 +203,19 @@ if __name__ == "__main__":
     match cmd:
         case "cnames":
             for (k, v) in run_from_stdin(cnames):
-                print(f"{k}:{'.'.join(v)}")
+                print(f"{k}:{','.join(v)}")
         case "cidr":
             for res in run_from_stdin(unfold_cidr):
                 _, ips = res
                 print("\n".join(ips))
         case "reverse":
             for (k, v) in run_from_stdin(reverse):
-                print(f"{k}:{'.'.join(v)}")
+                print(f"{k}:{','.join(v)}")
         case "sni":
             for (k, v) in run_from_stdin(sni):
-                print(f"{k}:{'.'.join(v)}")
+                print(f"{k}:{','.join(v)}")
         case "lookup":
             for (k, v) in run_from_stdin(lookup):
-                print(f"{k}:{'.'.join(v)}")
+                print(f"{k}:{','.join(v)}")
         case default:
             print("unknown command")
