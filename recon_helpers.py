@@ -2,7 +2,6 @@ from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from typing import Callable, Any, Iterable, Iterator
 from sys import stdin
 
-import fileinput
 import functools
 
 
@@ -23,7 +22,7 @@ def threaded(nthreads: int) -> Callable[
 def run_from_iter(
     f: Callable[[str], Future[tuple[str, Any]]],
     iter_: Iterable,
-    result_filter: Callable[[tuple[str, Any]], bool] = lambda x: True
+    result_filter: Callable[[tuple[str, Any]], bool] = lambda _: True
 ) -> Iterator[tuple[str, Any]]:
     for res in filter(
             result_filter,
@@ -54,7 +53,7 @@ def run_from_stdin(
     try:
         for res in run_from_iter(
             f,
-            [n.strip() for n in iter_stdin() if n.strip()],
+            iter_stdin(),
             deleting_filter  # attempt to save memory
         ):
             yield res
