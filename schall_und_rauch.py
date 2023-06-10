@@ -211,7 +211,6 @@ if __name__ == "__main__":
             for res in run_from_stdin(unfold_cidr):
                 _, ips = res
                 print("\n".join(ips))
-
         case "reverse":
             for (k, v) in run_from_stdin(reverse):
                 print(f"{k}:{'.'.join(v)}")
