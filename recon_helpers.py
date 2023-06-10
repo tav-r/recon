@@ -1,5 +1,5 @@
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
-from typing import Callable, Any, Iterable
+from typing import Callable, Any, Iterable, Iterator
 
 import fileinput
 import functools
@@ -23,29 +23,28 @@ def run_from_iter(
     f: Callable[[str], Future[tuple[str, Any]]],
     iter_: Iterable,
     result_filter: Callable[[tuple[str, Any]], bool] = lambda x: True
-) -> dict[str, list[Any]]:
-    return dict(
-        filter(
+) -> Iterator[tuple[str, Any]]:
+    for res in filter(
             result_filter,
             (c.result() for c in as_completed(
                 f(name) for name in iter_
             ))
-        )
-    )
+        ):
+
+        yield res
 
 
 def run_from_stdin(
     f: Callable[[str], Future[tuple[str, Any]]]
-) -> dict[str, list[Any]]:
+) -> Iterator[tuple[str, Any]]:
     try:
         with fileinput.input() as file_input:
-            res = run_from_iter(
+            for res in run_from_iter(
                 f,
                 [n.strip() for n in file_input if n.strip()],
                 lambda x: x[1]
-            )
+            ):
+                yield res
 
     except KeyboardInterrupt:
         print("Interrupted, exiting...")
-
-    return res

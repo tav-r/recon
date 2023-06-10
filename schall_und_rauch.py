@@ -205,17 +205,21 @@ if __name__ == "__main__":
 
     match cmd:
         case "cnames":
-            print(json.dumps(run_from_stdin(cnames), indent=4))
+            for (k, v) in run_from_stdin(cnames):
+                print(f"{k}:{'.'.join(v)}")
         case "cidr":
-            print("\n".join(reduce(
-                lambda x, y: list(x) + list(y),
-                (a for a in run_from_stdin(unfold_cidr).values())
-            )))
+            for res in run_from_stdin(unfold_cidr):
+                _, ips = res
+                print("\n".join(ips))
+
         case "reverse":
-            print(json.dumps(run_from_stdin(reverse), indent=4))
+            for (k, v) in run_from_stdin(reverse):
+                print(f"{k}:{'.'.join(v)}")
         case "sni":
-            print(json.dumps(run_from_stdin(sni), indent=4))
+            for (k, v) in run_from_stdin(sni):
+                print(f"{k}:{'.'.join(v)}")
         case "lookup":
-            print(json.dumps(run_from_stdin(lookup), indent=4))
+            for (k, v) in run_from_stdin(lookup):
+                print(f"{k}:{'.'.join(v)}")
         case default:
             print("unknown command")
