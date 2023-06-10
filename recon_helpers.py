@@ -24,15 +24,14 @@ def run_from_iter(
     iter_: Iterable,
     result_filter: Callable[[tuple[str, Any]], bool] = lambda x: True
 ) -> Iterator[tuple[str, Any]]:
-    for res in filter(
-            result_filter,
-            (c.result() for c in as_completed(
-                f(name) for name in iter_
-            ))
-        ):
+    for c in as_completed(
+        f(name) for name in iter_
+    ):
+        res = c.result()
+        if result_filter(res):
+            yield res
 
-        yield res
-
+        del(c)
 
 def deleting_filter(
         res: tuple[str, Any],
