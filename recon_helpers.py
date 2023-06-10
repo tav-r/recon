@@ -34,6 +34,15 @@ def run_from_iter(
         yield res
 
 
+def deleting_filter(
+        res: tuple[str, Any],
+) -> bool:
+    if not res[1]:
+        del(res)
+        return False
+
+    return True
+
 def run_from_stdin(
     f: Callable[[str], Future[tuple[str, Any]]]
 ) -> Iterator[tuple[str, Any]]:
@@ -42,7 +51,7 @@ def run_from_stdin(
             for res in run_from_iter(
                 f,
                 [n.strip() for n in file_input if n.strip()],
-                lambda x: x[1]
+                deleting_filter  # attempt to save memory
             ):
                 yield res
 
