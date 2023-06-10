@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-import json
 import ssl
 import io
 import OpenSSL.crypto as crypto
@@ -9,7 +8,7 @@ import dns
 import dns.resolver
 
 from typing import Any, Iterator, Optional, Callable
-from functools import partial, reduce
+from functools import partial
 from ipaddress import AddressValueError, IPv4Address, IPv4Network,\
     IPv6Address, IPv6Network
 from itertools import cycle
@@ -200,8 +199,6 @@ if __name__ == "__main__":
         )
 
         sys_exit(-1)
-
-    del argv[1]
 
     match cmd:
         case "cnames":
