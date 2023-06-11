@@ -13,7 +13,7 @@ from ipaddress import AddressValueError, IPv4Address, IPv4Network,\
     IPv6Address, IPv6Network
 from itertools import cycle
 
-from recon_helpers import threaded, run_from_stdin
+from recon_helpers import threaded, run_from_stdin, iter_stdin
 
 
 def generate_next_nameserver() -> Callable[[], str]:
@@ -149,7 +149,6 @@ def reverse(
     return resolver(ip)
 
 
-@threaded(1)
 def unfold_cidr(range: str) -> tuple[str, list[str]]:
     gen: Callable[..., Iterator[Any]]
 
@@ -205,8 +204,8 @@ if __name__ == "__main__":
             for (k, v) in run_from_stdin(cnames):
                 print(f"{k}:{','.join(v)}")
         case "cidr":
-            for res in run_from_stdin(unfold_cidr):
-                _, ips = res
+            for range in iter_stdin():
+                _, ips = unfold_cidr(range)
                 print("\n".join(ips))
         case "reverse":
             for (k, v) in run_from_stdin(reverse):
