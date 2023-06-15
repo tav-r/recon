@@ -93,7 +93,8 @@ def resolve(domain: str, type_: str) -> list[str]:
         dns.exception.Timeout,
         dns.resolver.NoNameservers,
         dns.name.EmptyLabel,
-        dns.name.NameTooLong
+        dns.name.NameTooLong,
+        dns.name.LabelTooLong
     ):
         return []
 
