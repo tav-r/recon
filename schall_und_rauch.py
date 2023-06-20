@@ -3,6 +3,7 @@
 import ssl
 import io
 import OpenSSL.crypto as crypto
+import socket
 
 import dns
 import dns.resolver
@@ -180,6 +181,25 @@ def sni(ip: str) -> tuple[str, list[str]]:
         return ip, []
 
 
+def brute_force_sni(host: str) -> Callable[[str], tuple[str, list[str]]]:
+    context = ssl.create_default_context()
+    @threaded(40)
+    def _f(hostname: str) -> tuple[str, list[str]]:
+        try:
+            with socket.create_connection((host, 443), timeout=.5) as sock:
+                try:
+                    with context.wrap_socket(sock, server_hostname=hostname) as _:
+                        ...
+                except ssl.SSLCertVerificationError:
+                    return host, []
+        except (TimeoutError, ConnectionRefusedError, OSError, BrokenPipeError):
+            return host, []
+
+        return host, [hostname]
+
+    return _f
+
+
 @threaded(40)
 def lookup(
     domain: str
@@ -214,6 +234,9 @@ if __name__ == "__main__":
                 print(f"{k}:{','.join(v)}")
         case "sni":
             for (k, v) in run_from_stdin(sni):
+                print(f"{k}:{','.join(v)}")
+        case "brute-force-sni":
+            for (k, v) in run_from_stdin(brute_force_sni(argv[2])):
                 print(f"{k}:{','.join(v)}")
         case "lookup":
             for (k, v) in run_from_stdin(lookup):

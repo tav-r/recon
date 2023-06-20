@@ -25,11 +25,16 @@ def run_from_iter(
     result_filter: Callable[[tuple[str, Any]], bool] = lambda _: True
 ) -> Iterator[tuple[str, Any]]:
     futures: list[Future[Any]] = []
+
     while True:
         while len(futures) < 500:
             try:
                 futures.append(f(next(iter_)))  # type: ignore
             except StopIteration:
+                for c in as_completed(futures):
+                    res = c.result()
+                    if result_filter(res):
+                        yield res
                 return
 
         for c in futures:
