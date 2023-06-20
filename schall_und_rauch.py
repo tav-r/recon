@@ -190,7 +190,7 @@ def brute_force_sni(host: str) -> Callable[[str], tuple[str, list[str]]]:
                 try:
                     with context.wrap_socket(sock, server_hostname=hostname) as _:
                         ...
-                except ssl.SSLCertVerificationError:
+                except (ssl.SSLCertVerificationError, UnicodeError):
                     return host, []
         except (TimeoutError, ConnectionRefusedError, OSError, BrokenPipeError):
             return host, []
