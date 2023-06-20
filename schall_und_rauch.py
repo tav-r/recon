@@ -215,7 +215,7 @@ if __name__ == "__main__":
     except IndexError:
         print(
             "subcommand required, choose 'cnames', 'cidr',"
-            "\'reverse', 'sni' or 'lookup'",
+            "\'reverse', 'sni', 'brute-force-sni' or 'lookup'",
             file=stderr
         )
 
