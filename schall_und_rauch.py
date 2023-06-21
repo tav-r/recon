@@ -183,13 +183,13 @@ def sni(ip: str) -> tuple[str, list[str]]:
 
 def _try_sni(host: str, hostname: str, context: ssl.SSLContext) -> tuple[str, list[str]]:
     try:
-        with socket.create_connection((host, 443), timeout=.5) as sock:
+        with socket.create_connection((host, 443), timeout=2) as sock:
             try:
                 with context.wrap_socket(sock, server_hostname=hostname) as _:
                     ...
-            except (ssl.SSLCertVerificationError, UnicodeError) as e:
+            except:
                 ...
-    except (TimeoutError, ConnectionRefusedError, OSError, BrokenPipeError) as e:
+    except (TimeoutError, ConnectionRefusedError, OSError, BrokenPipeError, UnicodeError) as e:
         return host, []
 
     return host, [hostname]
@@ -202,12 +202,16 @@ def brute_force_sni(host: str) -> Callable[[str], tuple[str, list[str]]]:
 
     return threaded(40)(lambda hostname: _try_sni(host, hostname, context))
 
-def brute_force_sni_rev(hostname: str) -> Callable[[str], tuple[str, list[str]]]:
+def brute_force_sni_rev(
+    hostname_f: Callable[[str], str] = lambda s: s
+) -> Callable[[str], tuple[str, list[str]]]:
     context = ssl.create_default_context()
     context.set_alpn_protocols(["h2", "http/1.1"])
     context.minimum_version = ssl.TLSVersion.TLSv1_2
     
-    return threaded(40)(lambda host: _try_sni(host, hostname, context))
+    return threaded(40)(
+        lambda host: _try_sni(host, hostname_f(host), context)
+    )
 
 @threaded(40)
 def lookup(
@@ -246,7 +250,20 @@ if __name__ == "__main__":
                 print(f"{k}:{','.join(v)}")
         case "brute-force-sni":
             target = [a for a in argv[2:] if not a.startswith("-")][0]
-            f = brute_force_sni(target) if "-r" not in argv else brute_force_sni_rev(target)
+            # prepend target to hostname if -m is passed
+            if "-m" in argv:
+                hostname_f = lambda s: f"{s}{'' if s.endswith('.') else '.'}{target}"
+            else:
+                hostname_f = lambda _: target
+
+            # read lists of hosts to scan for given hostname from stdin
+            # if -r is passed
+            if "-r" in argv:
+                f = brute_force_sni_rev(hostname_f)
+            # otherwise read hostnames from stdin and scan a single host
+            else:
+                f = brute_force_sni(target)
+
             for (k, v) in run_from_stdin(f):
                 print(f"{k}:{','.join(v)}")
         case "lookup":
