@@ -48,7 +48,7 @@ def get_programs() -> list[Program]:
 
     return [
         Program(**fix_json(p)) for p in requests.get(
-            BOUNTY_JSON, timeout=5
+            BOUNTY_JSON, timeout=15
         ).json() if p["bounty"] and not p["platform"]
     ]
 
@@ -56,7 +56,7 @@ def get_programs() -> list[Program]:
 def get_domains(zip_url: str) -> list[str]:
     """fetch zip from url, extract it, read and concatenate urls"""
 
-    with ZipFile(BytesIO(requests.get(zip_url, timeout=5).content)) as zipfile:
+    with ZipFile(BytesIO(requests.get(zip_url, timeout=15).content)) as zipfile:
         def open_read_close(name: str) -> list[str]:
             with zipfile.open(name) as file:
                 return [line.strip().decode() for line in file.readlines()]
@@ -84,7 +84,7 @@ if __name__ == "__main__":
         callack function)
         """
         regex = re.compile(args.regex)
-        matched_programs = [p for p in get_programs() if regex.match(p.name)]
+        matched_programs = [p for p in get_programs() if regex.findall(p.name)]
 
         zip_urls: list[str] = reduce(
             lambda dom_acc, prog: dom_acc + [prog.URL],
@@ -92,11 +92,8 @@ if __name__ == "__main__":
             []
         )
 
-        print("\n".join(
-            dom for doms in (
-                get_domains(zip_url) for zip_url in zip_urls[:5]
-            ) for dom in doms
-        ))
+        for zip_url in zip_urls:
+            print("\n".join(dom for dom in get_domains(zip_url)))
 
     domains_parser = subparsers.add_parser(
         "domains", help="list domains for given program"
