@@ -183,6 +183,8 @@ def sni(ip: str) -> tuple[str, list[str]]:
 
 def brute_force_sni(host: str) -> Callable[[str], tuple[str, list[str]]]:
     context = ssl.create_default_context()
+    context.set_alpn_protocols(["h2", "http/1.1"])
+    context.minimum_version = ssl.TLSVersion.TLSv1_2
     @threaded(40)
     def _f(hostname: str) -> tuple[str, list[str]]:
         try:
