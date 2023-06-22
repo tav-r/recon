@@ -9,7 +9,7 @@ import dns
 import dns.resolver
 
 from typing import Any, Iterator, Optional, Callable
-from functools import partial
+from functools import partial, wraps
 from ipaddress import AddressValueError, IPv4Address, IPv4Network,\
     IPv6Address, IPv6Network
 from itertools import cycle
@@ -185,8 +185,8 @@ def _try_sni(host: str, hostname: str, context: ssl.SSLContext) -> tuple[str, li
     try:
         with socket.create_connection((host, 443), timeout=2) as sock:
             try:
-                with context.wrap_socket(sock, server_hostname=hostname) as _:
-                    ...
+                with context.wrap_socket(sock, server_hostname=hostname) as s:
+                    s.write(f"GET / HTTP/1.1\r\nHost: {hostname}\r\n\r\n".encode())
             except:
                 ...
     except (TimeoutError, ConnectionRefusedError, OSError, BrokenPipeError, UnicodeError) as e:
@@ -195,20 +195,21 @@ def _try_sni(host: str, hostname: str, context: ssl.SSLContext) -> tuple[str, li
     return host, [hostname]
 
 
-def brute_force_sni(host: str) -> Callable[[str], tuple[str, list[str]]]:
+def inject_context(f: Callable[..., Any]) -> Callable[..., Any]:
     context = ssl.create_default_context()
     context.set_alpn_protocols(["h2", "http/1.1"])
     context.minimum_version = ssl.TLSVersion.TLSv1_2
 
+    return partial(f, context=context)
+
+@inject_context
+def brute_force_sni(host: str, context: ssl.SSLContext | None = None) -> Callable[[str], tuple[str, list[str]]]:
     return threaded(40)(lambda hostname: _try_sni(host, hostname, context))
 
+@inject_context
 def brute_force_sni_rev(
-    hostname_f: Callable[[str], str] = lambda s: s
+    hostname_f: Callable[[str], str], context: ssl.SSLContext | None = None
 ) -> Callable[[str], tuple[str, list[str]]]:
-    context = ssl.create_default_context()
-    context.set_alpn_protocols(["h2", "http/1.1"])
-    context.minimum_version = ssl.TLSVersion.TLSv1_2
-    
     return threaded(40)(
         lambda host: _try_sni(host, hostname_f(host), context)
     )
