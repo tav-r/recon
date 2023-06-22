@@ -198,12 +198,16 @@ def _try_sni(host: str, hostname: str, context: ssl.SSLContext) -> tuple[str, li
 def inject_context(f: Callable[..., Any]) -> Callable[..., Any]:
     context = ssl.create_default_context()
     context.set_alpn_protocols(["h2", "http/1.1"])
-    context.minimum_version = ssl.TLSVersion.TLSv1_2
+    context.check_hostname = False
+    context.verify_mode = ssl.CERT_NONE
 
     return partial(f, context=context)
 
 @inject_context
-def brute_force_sni(host: str, context: ssl.SSLContext | None = None) -> Callable[[str], tuple[str, list[str]]]:
+def brute_force_sni(
+    host: str,
+    context: ssl.SSLContext | None = None
+) -> Callable[[str], tuple[str, list[str]]]:
     return threaded(40)(lambda hostname: _try_sni(host, hostname, context))
 
 @inject_context
