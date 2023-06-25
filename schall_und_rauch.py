@@ -186,20 +186,24 @@ def _try_sni(host: str, hostname: str, context: ssl.SSLContext) -> tuple[str, li
         with socket.create_connection((host, 443), timeout=2) as sock:
             try:
                 with context.wrap_socket(sock, server_hostname=hostname) as s:
-                    s.write(f"GET / HTTP/1.1\r\nHost: {hostname}\r\n\r\n".encode())
+                    names = list(b for (_, b) in s.getpeercert()["subjectAltName"]) +\
+                        list(v for ((k, v),) in s.getpeercert()["subject"] if k == "commonName")
+
+                    if hostname in names:
+                        return host, [hostname]
             except:
                 ...
     except (TimeoutError, ConnectionRefusedError, OSError, BrokenPipeError, UnicodeError) as e:
-        return host, []
+        ...
 
-    return host, [hostname]
+    return host, []
 
 
 def inject_context(f: Callable[..., Any]) -> Callable[..., Any]:
     context = ssl.create_default_context()
     context.set_alpn_protocols(["h2", "http/1.1"])
     context.check_hostname = False
-    context.verify_mode = ssl.CERT_NONE
+    context.verify_mode = ssl.CERT_OPTIONAL
 
     return partial(f, context=context)
 
