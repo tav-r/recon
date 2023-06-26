@@ -33,10 +33,8 @@ def generate_next_nameserver() -> Callable[[], str]:
         "156.154.71.2",  # Neustar
         "208.67.222.222",  # OpenDNS
         "208.67.220.220",  # OpenDNS
-        "9.9.9.8",  # Quad9
         "9.9.9.9",  # Quad9
         "9.9.9.11",  # Quad9
-        "9.9.9.10",  # Quad9
         "77.88.8.1",  # yandex
         "77.88.8.8",  # yandex
         "77.88.8.2",  # yandex
@@ -46,10 +44,8 @@ def generate_next_nameserver() -> Callable[[], str]:
         "185.253.5.0",  # dns0.eu
         "76.76.2.0",  # Control D
         "76.76.10.0",  # Control D
-        "76.223.122.150",  # Alternate DNS
         "94.140.14.14",  # AdGuard DNS
         "94.140.15.15",  # AdGuard DNS
-        "212.89.130.180",  # InfoServe GMBH
         "194.25.0.60",  # Deutsche Telekom
         "194.25.0.68",  # Deutsche Telekom
         "176.9.1.117",  # Hetzner
