@@ -9,7 +9,7 @@ import dns
 import dns.resolver
 
 from typing import Any, Iterator, Optional, Callable
-from functools import partial, wraps
+from functools import partial
 from ipaddress import AddressValueError, IPv4Address, IPv4Network,\
     IPv6Address, IPv6Network
 from itertools import cycle
@@ -74,26 +74,33 @@ next_nameserver = generate_next_nameserver()
 
 
 def resolve(domain: str, type_: str) -> list[str]:
-    resolver = dns.resolver.Resolver(
-        filename=io.StringIO(f"nameserver {next_nameserver()}")
-    )
+    return resolve_with(next_nameserver())(domain, type_)
 
-    try:
-        return [
-            d.to_text().split(" ")[-1] for a in
-            resolver.resolve(domain, type_, lifetime=.5)
-            .response.answer for d in a
-        ]
-    except (
-        dns.resolver.NoAnswer,
-        dns.resolver.NXDOMAIN,
-        dns.exception.Timeout,
-        dns.resolver.NoNameservers,
-        dns.name.EmptyLabel,
-        dns.name.NameTooLong,
-        dns.name.LabelTooLong
-    ):
-        return []
+
+def resolve_with(ns: str) -> Callable[[str, str], list[str]]:
+    def _resolve(domain: str, type_: str) -> list[str]:
+        resolver = dns.resolver.Resolver(
+            filename=io.StringIO(f"nameserver {ns}")  # type: ignore
+        )
+
+        try:
+            return [
+                d.to_text().split(" ")[-1] for a in  # type: ignore
+                resolver.resolve(domain, type_, lifetime=.5)  # type: ignore
+                .response.answer for d in a  # type: ignore
+            ]
+        except (
+            dns.resolver.NoAnswer,
+            dns.resolver.NXDOMAIN,
+            dns.exception.Timeout,  # type: ignore
+            dns.resolver.NoNameservers,
+            dns.name.EmptyLabel,  # type: ignore
+            dns.name.NameTooLong,  # type: ignore
+            dns.name.LabelTooLong  # type: ignore
+        ):
+            return []
+
+    return _resolve
 
 
 @threaded(40)
@@ -118,7 +125,7 @@ def reverse_lookup_ipv6(ip: str) -> tuple[str, list[str]]:
     )
 
 
-def is_ip(address: str, type_: Callable) -> bool:
+def is_ip(address: str, type_: Callable[[str], Any]) -> bool:
     try:
         type_(address)
     except AddressValueError:
@@ -177,19 +184,27 @@ def sni(ip: str) -> tuple[str, list[str]]:
         return ip, []
 
 
-def _try_sni(host: str, hostname: str, context: ssl.SSLContext) -> tuple[str, list[str]]:
+def _try_sni(host: str, hostname: str, context: ssl.SSLContext | None) -> tuple[str, list[str]]:
+    assert context
+
     try:
         with socket.create_connection((host, 443), timeout=2) as sock:
             try:
                 with context.wrap_socket(sock, server_hostname=hostname) as s:
-                    names = list(b for (_, b) in s.getpeercert()["subjectAltName"]) +\
-                        list(v for ((k, v),) in s.getpeercert()["subject"] if k == "commonName")
+                    peercert = s.getpeercert()
+                    if not peercert:
+                        return host, []
+
+                    alt_names = [b for (_, b) in peercert["subjectAltName"] if s.getpeercert()]
+                    subject_names = [v for ((k, v),) in peercert["subject"] if k == "commonName"]  # type: ignore
+                    names = alt_names + subject_names
+                        
 
                     if hostname in names:
                         return host, [hostname]
             except:
                 ...
-    except (TimeoutError, ConnectionRefusedError, OSError, BrokenPipeError, UnicodeError) as e:
+    except (TimeoutError, ConnectionRefusedError, OSError, BrokenPipeError, UnicodeError) as _:
         ...
 
     return host, []
@@ -232,8 +247,8 @@ if __name__ == "__main__":
         cmd = argv[1]
     except IndexError:
         print(
-            "subcommand required, choose 'cnames', 'cidr',"
-            "\'reverse', 'sni', 'brute-force-sni' or 'lookup'",
+            "subcommand required, choose 'cnames', 'cidr', query-nameservers"
+            "'reverse', 'sni', 'brute-force-sni' or 'lookup'",
             file=stderr
         )
 
@@ -257,9 +272,9 @@ if __name__ == "__main__":
             target = [a for a in argv[2:] if not a.startswith("-")][0]
             # prepend target to hostname if -m is passed
             if "-m" in argv:
-                hostname_f = lambda s: f"{s}{'' if s.endswith('.') else '.'}{target}"
+                hostname_f: Callable[[str], str] = lambda s: f"{s}{'' if s.endswith('.') else '.'}{target}"
             else:
-                hostname_f = lambda _: target
+                hostname_f: Callable[[str], str] = lambda _: target
 
             # read lists of hosts to scan for given hostname from stdin
             # if -r is passed
@@ -273,6 +288,11 @@ if __name__ == "__main__":
                 print(f"{k}:{','.join(v)}")
         case "lookup":
             for (k, v) in run_from_stdin(lookup):
+                print(f"{k}:{','.join(v)}")
+        case "query-nameservers":
+            domain = argv[2]
+            f = threaded(40)(lambda ns: (ns, resolve_with(ns)(domain, "A") + resolve_with(ns)(domain, "AAAA")))
+            for (k, v) in run_from_stdin(f):
                 print(f"{k}:{','.join(v)}")
         case default:
             print("unknown command")

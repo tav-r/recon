@@ -1,7 +1,6 @@
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from typing import Callable, Any, Iterable, Iterator
 from sys import stdin
-from time import sleep
 
 import functools
 
@@ -21,7 +20,7 @@ def threaded(nthreads: int) -> Callable[
 
 def run_from_iter(
     f: Callable[[str], Future[tuple[str, Any]]],
-    iter_: Iterable,
+    iter_: Iterable[str],
     result_filter: Callable[[tuple[str, Any]], bool] = lambda _: True
 ) -> Iterator[tuple[str, Any]]:
     futures: list[Future[Any]] = []
