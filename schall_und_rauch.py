@@ -8,7 +8,7 @@ import socket
 import dns
 import dns.resolver
 
-from typing import Any, Iterator, Optional, Callable
+from typing import Any, Iterator, Optional, Callable 
 from functools import partial
 from ipaddress import AddressValueError, IPv4Address, IPv4Network,\
     IPv6Address, IPv6Network
@@ -73,8 +73,12 @@ def generate_next_nameserver() -> Callable[[], str]:
 next_nameserver = generate_next_nameserver()
 
 
-def resolve(domain: str, type_: str) -> list[str]:
-    return resolve_with(next_nameserver())(domain, type_)
+def resolve(
+        domain: str,
+        type_: str,
+        nameserver_f: Callable[[], str] = next_nameserver
+) -> list[str]:
+    return resolve_with(nameserver_f())(domain, type_)
 
 
 def resolve_with(ns: str) -> Callable[[str, str], list[str]]:
@@ -235,10 +239,22 @@ def brute_force_sni_rev(
 
 @threaded(40)
 def lookup(
-    domain: str
+    domain: str,
+    nameserver_f: Callable[[], str] | None = None
 ) -> tuple[str, list[str]]:
-    return domain, resolve(domain, "A") + resolve(domain, "AAAA")
+    if nameserver_f:
+        return domain, resolve(domain, "A", nameserver_f)\
+            + resolve(domain, "AAAA", nameserver_f)
+    else:
+        return domain, resolve(domain, "A") + resolve(domain, "AAAA")
 
+
+def print_help() -> None:
+    print(
+        "valid subcommands: 'cnames', 'cidr', 'reverse', 'sni'"
+        "'brute-force-sni', 'query nameservers'  or 'lookup'",
+        file=stderr
+    )
 
 if __name__ == "__main__":
     from sys import argv, stderr, exit as sys_exit
@@ -246,11 +262,7 @@ if __name__ == "__main__":
     try:
         cmd = argv[1]
     except IndexError:
-        print(
-            "subcommand required, choose 'cnames', 'cidr', query-nameservers"
-            "'reverse', 'sni', 'brute-force-sni' or 'lookup'",
-            file=stderr
-        )
+        print_help()
 
         sys_exit(-1)
 
@@ -272,7 +284,8 @@ if __name__ == "__main__":
             target = [a for a in argv[2:] if not a.startswith("-")][0]
             # prepend target to hostname if -m is passed
             if "-m" in argv:
-                hostname_f: Callable[[str], str] = lambda s: f"{s}{'' if s.endswith('.') else '.'}{target}"
+                hostname_f: Callable[[str], str] =\
+                    lambda s: f"{s}{'' if s.endswith('.') else '.'}{target}"
             else:
                 hostname_f: Callable[[str], str] = lambda _: target
 
@@ -287,12 +300,25 @@ if __name__ == "__main__":
             for (k, v) in run_from_stdin(f):
                 print(f"{k}:{','.join(v)}")
         case "lookup":
-            for (k, v) in run_from_stdin(lookup):
+            # if -l is passed, read nameservers from file
+            f = lookup
+            if "-l" in argv:
+                with open(argv[argv.index("-l") + 1], "r") as f:
+                    ns_list = [l.strip() for l in f.readlines()]
+                    nameserver_f = cycle(ns_list).__next__
+                    f = partial(lookup, nameserver_f=nameserver_f)
+
+            for (k, v) in run_from_stdin(f):
                 print(f"{k}:{','.join(v)}")
         case "query-nameservers":
             domain = argv[2]
-            f = threaded(40)(lambda ns: (ns, resolve_with(ns)(domain, "A") + resolve_with(ns)(domain, "AAAA")))
+            f = threaded(40)(lambda ns: (
+                ns,
+                resolve_with(ns)(domain, "A") +
+                resolve_with(ns)(domain, "AAAA")
+            ))
             for (k, v) in run_from_stdin(f):
                 print(f"{k}:{','.join(v)}")
         case default:
-            print("unknown command")
+            print("[error] unknown command")
+            print_help()
