@@ -4,7 +4,7 @@
 SUBS=false
 KEEP_TEMP=false
 POSITIONAL=()
-REGEX='[\\?,&][^&\\?]+=((http|aHR0cHM6Ly|aHR0cDovL)|[^&\\?]*(/|%2f|%2F))'
+REGEX='[\?,&][^&\?]+=((http|aHR0cHM6Ly|aHR0cDovL|%68%74%74%70%3a%2f%2f|%68%74%74%70%73%3a%2f%2f)|[^&\?]*(/|%2f|%2F))'
 SCRIPTNAME=$0
 VERBOSE=false
 #####################
