@@ -45,7 +45,7 @@ def new_host_node(
     if hostnames:
         xml_host_name += " (" + ", ".join(hostnames) + ")"
 
-    xml_host.set("custom_icon_id", "21")
+    xml_host.set("custom_icon_id", "165")
     xml_host.set("name", xml_host_name)
     xml_host.set("tags", "")
     xml_host.set("unique_id", str(node_id))
