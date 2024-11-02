@@ -143,7 +143,7 @@ is_ipv4_range = partial(is_ip, type_=IPv4Network)
 is_ipv6_range = partial(is_ip, type_=IPv6Network)
 
 
-@threaded(40)
+@threaded(100)
 def reverse(
     ip: str
 ) -> tuple[str, list[str]]:
@@ -172,7 +172,7 @@ def unfold_cidr(range: str) -> tuple[str, list[str]]:
     return range, list(str(i) for i in gen())
 
 
-@threaded(40)
+@threaded(500)
 def sni(ip: str) -> tuple[str, list[str]]:
     dst = (ip, 443)
     try:
