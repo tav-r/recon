@@ -169,7 +169,7 @@ def unfold_cidr(range: str) -> tuple[str, list[str]]:
     else:
         return range, []
 
-    return range, list(str(i) for i in gen())
+    return gen()
 
 
 @threaded(500)
@@ -272,8 +272,8 @@ if __name__ == "__main__":
                 print(f"{k}:{','.join(v)}")
         case "cidr":
             for range in iter_stdin():
-                _, ips = unfold_cidr(range)
-                print("\n".join(ips))
+                for host in unfold_cidr(range):
+                    print(str(host))
         case "reverse":
             for (k, v) in run_from_stdin(reverse):
                 print(f"{k}:{','.join(v)}")
