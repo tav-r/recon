@@ -1,4 +1,5 @@
 import requests
+from requests.exceptions import RequestException
 import json
 
 from typing import Iterator
@@ -35,7 +36,12 @@ def parse_robots(robots_txt: str, base_url: str) -> Iterator[tuple[str, str]]:
 @threaded(5)
 def crawl_robots_txt(host: str) -> tuple[str, list[dict[str, str]]]:
     url = f"{host}/robots.txt"
-    res = requests.get(url)
+    url = url if url[:5] in ["http:/", "https:"] else "https://" + url
+    try:
+        res = requests.get(url)
+    except RequestException:
+        return url, []
+
 
     if res.ok:
         lines = parse_robots(
@@ -62,4 +68,5 @@ def crawl_robots_txt(host: str) -> tuple[str, list[dict[str, str]]]:
 
 
 if __name__ == "__main__":
-    print(json.dumps(run_from_stdin(crawl_robots_txt), indent=4))
+    for res in run_from_stdin(crawl_robots_txt):
+        print(json.dumps(res, indent=4))

@@ -41,7 +41,6 @@ def generate_next_nameserver() -> Callable[[], str]:
         "185.228.168.9",  # CleanBrowsing
         "185.228.169.9"  # CleanBrowsing
         "193.110.81.0",  # dns0.eu
-        "185.253.5.0",  # dns0.eu
         "76.76.2.0",  # Control D
         "76.76.10.0",  # Control D
         "94.140.14.14",  # AdGuard DNS
@@ -57,11 +56,7 @@ def generate_next_nameserver() -> Callable[[], str]:
         "156.154.70.1",  # UltraDNS
         "156.154.71.1",  # UltraDNS
         "204.194.232.200",  # Cisco OpenDNS
-        "204.194.234.200",  # Cisco OpenDNS
         "208.67.220.222",  # Cisco OpenDNS
-        "216.146.35.35",  # Norton ConnectSafe ?
-        "205.214.45.10",  # MegaPath ?
-        "24.113.32.29",  # Wave Broadband
     ])
 
     def _f() -> str:
@@ -251,7 +246,7 @@ def lookup(
 
 def print_help() -> None:
     print(
-        "valid subcommands: 'cnames', 'cidr', 'reverse', 'sni'"
+        "valid subcommands: 'cnames', 'cidr', 'reverse', 'sni', "
         "'brute-force-sni', 'query nameservers'  or 'lookup'",
         file=stderr
     )
