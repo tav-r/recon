@@ -25,12 +25,12 @@ async def thc_db(session: aiohttp.ClientSession, domain: str) -> List[str]:
     THC_URL = "https://ip.thc.org/api/v1/subdomains/download"
 
     text = await fetch_text(session, f"{THC_URL}?domain={domain}")
-    return [l.strip() for l in text.splitlines() if l.strip()]
+    return [l.strip() for l in text.splitlines() if l.strip()][1:]
 
 async def kaeferjaeger_snis(session: aiohttp.ClientSession, domain: str) -> List[str]:
     PROVIDERS = ["amazon", "digitalocean", "google", "microsoft"]
     
-    async def fetch_provider(provider: str):
+    async def fetch_provider(provider: str, domain: str):
         url = f"https://kaeferjaeger.gay/sni-ip-ranges/{provider}/ipv4_merged_sni.txt"
 
         results = []
@@ -38,16 +38,16 @@ async def kaeferjaeger_snis(session: aiohttp.ClientSession, domain: str) -> List
             if resp.status != 200: return []
             async for line in resp.content:
                 line_decoded = line.decode('utf-8', errors='ignore')
-                if domain in line_decoded:
-                     parts = line_decoded.split(' ')
-                     for part in parts:
-                         clean_part = part.strip("[]\n")
-                         if clean_part.endswith(f".{domain}"):
-                             results.append(clean_part)
+
+                if not " -- " in line_decoded:
+                    continue
+                
+                for domain in [dom for dom in line_decoded.split(" -- ")[1].strip().strip("[]").split(" ") if dom.endswith(domain)]:
+                     results.append(domain)
 
         return results
 
-    tasks = [fetch_provider(p) for p in PROVIDERS]
+    tasks = [fetch_provider(p, domain) for p in PROVIDERS]
     provider_results = await asyncio.gather(*tasks)
     
     return [item for sublist in provider_results for item in sublist]
@@ -80,7 +80,7 @@ async def certkit_log(session: aiohttp.ClientSession, domain: str) -> List[str]:
     return results
 
 async def main(domain: str):
-    timeout = aiohttp.ClientTimeout(total=30)
+    timeout = aiohttp.ClientTimeout(total=60)
     async with aiohttp.ClientSession(timeout=timeout) as session:
         tasks = [
             thc_db(session, domain),
