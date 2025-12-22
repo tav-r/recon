@@ -138,7 +138,7 @@ is_ipv4_range = partial(is_ip, type_=IPv4Network)
 is_ipv6_range = partial(is_ip, type_=IPv6Network)
 
 
-@threaded(100)
+@threaded(50)
 def reverse(
     ip: str
 ) -> tuple[str, list[str]]:
