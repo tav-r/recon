@@ -16,10 +16,16 @@ async def fetch_text(session: aiohttp.ClientSession, url: str, **kwargs) -> str:
         response.raise_for_status()
         return await response.text()
 
-async def fetch_json(session: aiohttp.ClientSession, url: str, **kwargs) -> dict:
+async def post_fetch_json(session: aiohttp.ClientSession, url: str, **kwargs) -> dict:
     async with session.post(url, **kwargs) as response:
         response.raise_for_status()
         return await response.json()
+
+async def get_fetch_json(session: aiohttp.ClientSession, url: str, **kwargs) -> dict:
+    async with session.get(url, **kwargs) as response:
+        response.raise_for_status()
+        return await response.json()
+
 
 async def thc_db(session: aiohttp.ClientSession, domain: str) -> List[str]:
     THC_URL = "https://ip.thc.org/api/v1/subdomains/download"
@@ -41,7 +47,7 @@ async def kaeferjaeger_snis(session: aiohttp.ClientSession, domain: str) -> List
 
                 if not " -- " in line_decoded:
                     continue
-                
+
                 for domain in [dom for dom in line_decoded.split(" -- ")[1].strip().strip("[]").split(" ") if dom.endswith(domain)]:
                      results.append(domain)
 
@@ -65,7 +71,7 @@ async def hackertarget_db(session: aiohttp.ClientSession, domain: str) -> List[s
 async def certkit_log(session: aiohttp.ClientSession, domain: str) -> List[str]:
     URL = "https://ct.certkit.io/search"
 
-    data = await fetch_json(session, URL, json={"domain": domain, "sort": ""})
+    data = await post_fetch_json(session, URL, json={"domain": domain, "sort": ""})
     results = []
     for res in data.get("results", []):
         dns_names = res.get("dnsNames", [])
@@ -79,6 +85,16 @@ async def certkit_log(session: aiohttp.ClientSession, domain: str) -> List[str]:
             results.append(entry)
     return results
 
+async def crt_sh(session: aiohttp.ClientSession, domain: str) -> List[str]:
+    url = f"https://crt.sh/json?identity={domain}&exclude=expired"
+
+    data = await get_fetch_json(session, url)
+
+    cns = [d["common_name"] for d in data if d["common_name"]]
+    ids = [n for d in data for n in d["name_value"].split("\n")]
+
+    return cns + ids
+
 async def main(domain: str):
     timeout = aiohttp.ClientTimeout(total=60)
     async with aiohttp.ClientSession(timeout=timeout) as session:
@@ -86,7 +102,8 @@ async def main(domain: str):
             thc_db(session, domain),
             kaeferjaeger_snis(session, domain),
             hackertarget_db(session, domain),
-            certkit_log(session, domain)
+            certkit_log(session, domain),
+            crt_sh(session, domain)
         ]
 
         for future in asyncio.as_completed(tasks):
