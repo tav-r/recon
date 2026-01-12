@@ -1,9 +1,7 @@
 import asyncio
 import aiohttp
-import json
-import re
 from os import environ
-from typing import List, AsyncIterator
+from typing import List
 
 try:
     from dotenv import load_dotenv
