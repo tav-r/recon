@@ -13,7 +13,7 @@ from dataclasses import dataclass
 
 import re
 
-import requests
+import requests  # type: ignore[import]
 
 BOUNTY_JSON = "https://chaos-data.projectdiscovery.io/index.json"
 
