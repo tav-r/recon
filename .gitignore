@@ -1,14 +1,2 @@
+# Created by venv; see https://docs.python.org/3/library/venv.html
 *
-!README.md
-!grep_alias.sh
-!nmap2cherrytree.png
-!nmap2cherrytree.py
-!project_discovery_chaos.py
-!recon_helpers.py
-!redirects.sh
-!requirements-dev.txt
-!requirements.txt
-!robots.py
-!schall_und_rauch.py
-!passive_subdomains.py
-!.gitignore
