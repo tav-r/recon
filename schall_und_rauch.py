@@ -17,6 +17,10 @@ from dnslib import DNSRecord  # type: ignore
 
 STDIN_ITER = (l for l in stdin if l.strip())
 
+SSL_CONTEXT = ssl.create_default_context()
+SSL_CONTEXT.check_hostname = False
+SSL_CONTEXT.verify_mode = ssl.CERT_REQUIRED
+
 # https://en.wikipedia.org/wiki/Linear_congruential_generator
 def lazy_global_random_ips(cidr_list: list[str]) -> Iterator[str]:
     networks = []
@@ -426,14 +430,10 @@ async def reverse(
 
 
 async def extract_from_cert(ip: str) -> tuple[Optional[str], list[str]]:
-    context = ssl.create_default_context()
-    context.check_hostname = False
-    context.verify_mode = ssl.CERT_REQUIRED # Library parses it for us
-
     names: set[str] = set()
     try:
         reader, writer = await asyncio.wait_for(
-            asyncio.open_connection(ip, 443, ssl=context),
+            asyncio.open_connection(ip, 443, ssl=SSL_CONTEXT),
             timeout=1.0
         )
         cert = writer.get_extra_info('ssl_object').getpeercert()
@@ -445,11 +445,13 @@ async def extract_from_cert(ip: str) -> tuple[Optional[str], list[str]]:
             for attr in rdn:
                 if attr[0] == 'commonName':
                     names.add(str(attr[1]))
-
-        writer.close()
-        await writer.wait_closed()
     except Exception:
-        pass
+        ...
+    finally:
+        if writer:
+            writer.close()
+            await writer.wait_closed()
+
         
     return ip, list(names)
 
@@ -469,36 +471,32 @@ def print_help() -> None:
     )
 
 async def main(cmd: str, parallelism: int, input_iter: Iterable[str]) -> None:
-    async def run_template(f, inputs, parallel):
-        queue = asyncio.Queue(maxsize=parallel)
+    sem = asyncio.Semaphore(parallelism)
+    tasks = set()
 
-        async def worker():
-            while True:
-                item = await queue.get()
-                try:
-                    k, v = await f(item)
-                    if k:
-                        print(f"{k}:{','.join(v)}")
-                except Exception:
-                    pass
-                finally:
-                    queue.task_done()
+    async def sem_task(item):
+        async with sem:
+            try:
+                k, v = await f(item)
+                if k and v: print(f"{k}:{','.join(v)}", flush=True)
+            except Exception: pass
 
-        workers = [asyncio.create_task(worker()) for _ in range(parallel)]
-
-        for item in inputs:
-            await queue.put(item.strip())
-
-        await queue.join()
-
-        for w in workers:
-            w.cancel()
+    async def run_template(func, inputs):
+        nonlocal f
+        f = func
+        for line in inputs:
+            task = asyncio.create_task(sem_task(line.strip()))
+            tasks.add(task)
+            task.add_done_callback(tasks.discard)
+            if len(tasks) >= parallelism:
+                await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+        if tasks: await asyncio.gather(*tasks, return_exceptions=True)
 
     match cmd:
         case "cnames":
             f = partial(cnames, nameserver_f=generate_next_nameserver())
 
-            await run_template(f, input_iter, parallelism)
+            await run_template(f, input_iter)
 
         case "cidr":
             cidr_inputs = [line.strip() for line in stdin if line.strip()]
@@ -508,24 +506,24 @@ async def main(cmd: str, parallelism: int, input_iter: Iterable[str]) -> None:
         case "reverse":
             f = partial(reverse, nameserver_f=generate_next_nameserver())
 
-            await run_template(f, input_iter, parallelism)
+            await run_template(f, input_iter)
 
         case "cert":
             f = partial(extract_from_cert)
 
-            await run_template(f, input_iter, parallelism)
+            await run_template(f, input_iter)
 
         case "lookup":
             f = partial(lookup, nameserver_f=generate_next_nameserver())
 
-            await run_template(f, input_iter, parallelism)
+            await run_template(f, input_iter)
 
         case "query-nameservers":
             addr = argv[2]
 
             f = partial(lookup, nameserver_f=cycle([addr]).__next__)
 
-            await run_template(f, input_iter, parallelism)
+            await run_template(f, input_iter)
 
         case default:
             print("[error] unknown command")
@@ -584,5 +582,5 @@ if __name__ == "__main__":
 
             sys_exit(-1)
         
-        asyncio.run(main(args.cmd, args.parallelism, input_iter))
+        asyncio.run(main(args.command, args.parallelism, input_iter))
 
