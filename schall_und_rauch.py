@@ -10,15 +10,12 @@ from ipaddress import AddressValueError, IPv4Address, IPv4Network, IPv6Address, 
 from itertools import cycle
 from random import sample
 from sys import stdin,stderr
-from typing import Any, Callable, Iterator, Optional
+from typing import Any, Callable, Iterable, Iterator, Optional
 from bisect import bisect_right
 
 from dnslib import DNSRecord  # type: ignore
 
-def iter_stdin() -> Iterator[str]:
-    while line := stdin.readline():
-        yield line.strip()
-
+STDIN_ITER = (l for l in stdin if l.strip())
 
 # https://en.wikipedia.org/wiki/Linear_congruential_generator
 def lazy_global_random_ips(cidr_list: list[str]) -> Iterator[str]:
@@ -471,7 +468,7 @@ def print_help() -> None:
         file=stderr
     )
 
-async def main(cmd: str) -> None:
+async def main(cmd: str, parallelism: int, input_iter: Iterable[str]) -> None:
     async def run_template(f, inputs, parallel):
         queue = asyncio.Queue(maxsize=parallel)
 
@@ -501,7 +498,7 @@ async def main(cmd: str) -> None:
         case "cnames":
             f = partial(cnames, nameserver_f=generate_next_nameserver())
 
-            await run_template(f, iter_stdin(), 1000)
+            await run_template(f, input_iter, parallelism)
 
         case "cidr":
             cidr_inputs = [line.strip() for line in stdin if line.strip()]
@@ -511,24 +508,24 @@ async def main(cmd: str) -> None:
         case "reverse":
             f = partial(reverse, nameserver_f=generate_next_nameserver())
 
-            await run_template(f, iter_stdin(), 1000)
+            await run_template(f, input_iter, parallelism)
 
         case "cert":
             f = partial(extract_from_cert)
 
-            await run_template(f, iter_stdin(), 1000)
+            await run_template(f, input_iter, parallelism)
 
         case "lookup":
             f = partial(lookup, nameserver_f=generate_next_nameserver())
 
-            await run_template(f, iter_stdin(), 1000)
+            await run_template(f, input_iter, parallelism)
 
         case "query-nameservers":
             addr = argv[2]
 
             f = partial(lookup, nameserver_f=cycle([addr]).__next__)
 
-            await run_template(f, iter_stdin(), 5)
+            await run_template(f, input_iter, parallelism)
 
         case default:
             print("[error] unknown command")
@@ -536,13 +533,56 @@ async def main(cmd: str) -> None:
    
 
 if __name__ == "__main__":
-    from sys import argv, exit as sys_exit
+    from sys import argv, stderr, exit as sys_exit
+    from argparse import ArgumentParser
 
-    try:
-        cmd = argv[1]
-    except IndexError:
-        print_help()
+    DEFAULT_PARALLELISM = 1000
 
-        sys_exit(-1)
+    argparse = ArgumentParser()
 
-    asyncio.run(main(cmd))
+    argparse.add_argument(
+        "command",
+        type=str,
+        help="subcommand to run",
+        choices=[
+            "cnames",
+            "cidr",
+            "reverse",
+            "cert",
+            "lookup",
+            "query-nameservers"
+        ]
+    )
+
+    argparse.add_argument(
+        "input_file",
+        type=str,
+        help="file containing input data, one entry per line, if none given stdin is used",
+        default="-",
+    )
+
+    argparse.add_argument(
+        "--parallelism",
+        type=int,
+        default=DEFAULT_PARALLELISM,
+        help=f"number of concurrent requests (default: {DEFAULT_PARALLELISM})",
+    )
+
+    args = argparse.parse_args()
+
+    if args.input_file == "-":
+        asyncio.run(main(args.command, args.parallelism, STDIN_ITER))
+    else:
+        try:
+            with open(args.input_file, "r") as f:
+                input_iter = (l for l in f if l.strip())
+        except (FileNotFoundError, FileExistsError, PermissionError) as e:
+            print(
+                f"[error] cannot open input file '{args.input_file}': {e}",
+                file=stderr
+            )
+
+            sys_exit(-1)
+        
+        asyncio.run(main(args.cmd, args.parallelism, input_iter))
+
