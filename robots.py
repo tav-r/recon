@@ -1,72 +1,59 @@
-import requests
-from requests.exceptions import RequestException
-import json
+import aiohttp
+import asyncio
 
 from typing import Iterator
-from recon_helpers import run_from_stdin, threaded
 from concurrent.futures import as_completed
+from sys import stdin
 
 
-def iter_stdin() -> Iterator:
-    while True:
-        try:
-            yield input()
-        except EOFError:
-            return
-
-
-@threaded(20)
-def probe(tag: str, url: str) -> tuple[str, str, str]:
-    return tag, url, str(requests.get(url).status_code)
+async def probe(client: aiohttp.ClientSession, tag: str, url: str) -> int:
+    return (await client.get(url)).status
 
 
 def parse_robots(robots_txt: str, base_url: str) -> Iterator[tuple[str, str]]:
-    for line in filter(
-        lambda l:
-        l.split(" ")[0] in ["Allow:", "Disallow:"], robots_txt.split("\n")
+    for (directive, path) in (
+        l.split(" ", 1) for l in robots_txt.split("\n")
+        if any(l.startswith(prefix) for prefix in ["Allow:", "Disallow:"])
     ):
         try:
-            yield (lambda l: (l[0].strip()[:-1], f"{base_url}{l[1].strip()}"))(
-                line.split(" ")
-            )
+            yield (directive, f"{base_url}{path}")
         except IndexError:
             ...
 
 
-@threaded(5)
-def crawl_robots_txt(host: str) -> tuple[str, list[dict[str, str]]]:
-    url = f"{host}/robots.txt"
-    url = url if url[:5] in ["http:/", "https:"] else "https://" + url
-    try:
-        res = requests.get(url)
-    except RequestException:
-        return url, []
+async def crawl_robots_txt(client: aiohttp.ClientSession, host: str) -> None:
+    host = host[:-1] if host.endswith("/") else host
 
+    robots_url = f"{host}/robots.txt"
+    robots_url = robots_url if robots_url[:6] in ["http:/", "https:"] else "https://" + robots_url
+
+    res = await client.get(robots_url)
 
     if res.ok:
+        semaphore = asyncio.Semaphore(4)
+
         lines = parse_robots(
-            res.content.decode(),
+            (await res.content.read()).decode(),
             host
         )
 
-        @threaded(1)
-        def do_not_probe(tag: str, url: str) -> tuple[str, str, str]:
-            return tag, url, "-1"
+        async def worker(tag: str, url: str):
+            async with semaphore:
+                code = await probe(client, tag, url)
+                print(f"[+] {tag} {url} {code}")
 
-        probes = [
-            (lambda c: {"tag": c[0], "url": c[1], "status_code": c[2]})(
-                c.result()
-            ) for c in as_completed(
-                probe(tag, url) if "*" not in url else do_not_probe(tag, url)
-                for (tag, url) in lines) if not c.exception()]
+        jobs = [worker(tag, url) for (tag, url) in set(lines) if "*" not in url]
 
-        return (
-            host, probes
-        )
+        await asyncio.gather(*jobs)
 
-    return (host, [])
+    await client.close()
 
+
+async def main():
+    client = aiohttp.ClientSession()
+
+    async for res in (await crawl_robots_txt(client, l.strip()) for l in stdin):
+        ...
 
 if __name__ == "__main__":
-    for res in run_from_stdin(crawl_robots_txt):
-        print(json.dumps(res, indent=4))
+    asyncio.run(main())
