@@ -3,7 +3,10 @@
 import asyncio
 import socket
 import ssl
-import random
+try:
+    import uvloop
+except ImportError:
+    uvloop = None  # type: ignore
 
 from functools import partial
 from ipaddress import AddressValueError, IPv4Address, IPv4Network, IPv6Address, IPv6Network
@@ -12,6 +15,7 @@ from random import sample
 from sys import stdin,stderr
 from typing import Any, Callable, Iterable, Iterator, Optional
 from bisect import bisect_right
+from cryptography import x509
 
 from dnslib import DNSRecord  # type: ignore
 
@@ -19,9 +23,18 @@ STDIN_ITER = (l for l in stdin if l.strip())
 
 SSL_CONTEXT = ssl.create_default_context()
 SSL_CONTEXT.check_hostname = False
-SSL_CONTEXT.verify_mode = ssl.CERT_REQUIRED
+SSL_CONTEXT.verify_mode = ssl.CERT_NONE
 
-# https://en.wikipedia.org/wiki/Linear_congruential_generator
+def get_ip_from_global_index(networks, cumulative_sizes, global_idx):
+    net_idx = bisect_right(cumulative_sizes, global_idx)
+    
+    if net_idx == 0:
+        local_offset = global_idx
+    else:
+        local_offset = global_idx - cumulative_sizes[net_idx - 1]
+    
+    return str(networks[net_idx][local_offset])
+
 def lazy_global_random_ips(cidr_list: list[str]) -> Iterator[str]:
     networks = []
     cumulative_sizes = []
@@ -33,34 +46,18 @@ def lazy_global_random_ips(cidr_list: list[str]) -> Iterator[str]:
             networks.append(net)
             total_addresses += net.num_addresses
             cumulative_sizes.append(total_addresses)
-        except Exception:
-            continue
+        except Exception: continue
 
-    if not networks:
-        return
+    if total_addresses == 0: return
 
     nbits = (total_addresses - 1).bit_length()
-    m_pow2 = 1 << nbits
-    
-    a = 5
-    c = random.getrandbits(nbits) | 1
-    state = random.getrandbits(nbits)
+    total_range = 1 << nbits
 
-    yielded = 0
-    while yielded < total_addresses:
-        if state < total_addresses:
-            net_idx = bisect_right(cumulative_sizes, state)
-            
-            if net_idx == 0:
-                local_offset = state
-            else:
-                local_offset = state - cumulative_sizes[net_idx - 1]
-            
-            yield str(networks[net_idx][local_offset])
-            yielded += 1
-            
-        state = (a * state + c) % m_pow2
-
+    for i in range(total_range):
+        shuffled_idx = int(f'{i:0{nbits}b}'[::-1], 2)
+        
+        if shuffled_idx < total_addresses:
+            yield get_ip_from_global_index(networks, cumulative_sizes, shuffled_idx)
 
 def generate_next_nameserver() -> Callable[[], str]:
     nameservers = [
@@ -431,27 +428,45 @@ async def reverse(
 
 async def extract_from_cert(ip: str) -> tuple[Optional[str], list[str]]:
     names: set[str] = set()
+    writer = None
     try:
-        reader, writer = await asyncio.wait_for(
-            asyncio.open_connection(ip, 443, ssl=SSL_CONTEXT),
+        _, writer = await asyncio.wait_for(
+            asyncio.open_connection(ip, 443), # No ssl= here
             timeout=1.0
         )
-        cert = writer.get_extra_info('ssl_object').getpeercert()
+
+        # try to achieve some speed gains by disabling Nagle's algorithm
+        # _before_ TLS handshake
+        sock = writer.get_extra_info('socket')
+        if sock:
+            sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+
+        await writer.start_tls(SSL_CONTEXT, server_hostname=ip)
+
+        ssl_obj = writer.get_extra_info('ssl_object')
+        der_cert = ssl_obj.getpeercert(binary_form=True)
         
-        if 'subjectAltName' in cert:
-            names.update(str(x[1]) for x in cert['subjectAltName'])
+        if der_cert:
+            cert = x509.load_der_x509_certificate(der_cert)
             
-        for rdn in cert.get('subject', []):
-            for attr in rdn:
-                if attr[0] == 'commonName':
-                    names.add(str(attr[1]))
+            for attribute in cert.subject.get_attributes_for_oid(x509.NameOID.COMMON_NAME):
+                names.add(str(attribute.value))
+            
+            try:
+                ext = cert.extensions.get_extension_for_class(x509.SubjectAlternativeName)
+                names.update(ext.value.get_values_for_type(x509.DNSName))
+                
+                ip_sans = ext.value.get_values_for_type(x509.IPAddress)
+                names.update(str(ip_addr) for ip_addr in ip_sans)
+            except Exception:
+                pass
+
     except Exception:
-        ...
+        pass
     finally:
         if writer:
             writer.close()
             await writer.wait_closed()
-
         
     return ip, list(names)
 
@@ -499,7 +514,7 @@ async def main(cmd: str, parallelism: int, input_iter: Iterable[str]) -> None:
             await run_template(f, input_iter)
 
         case "cidr":
-            cidr_inputs = [line.strip() for line in stdin if line.strip()]
+            cidr_inputs = [line.strip() for line in input_iter if line.strip()]
             for ip in lazy_global_random_ips(cidr_inputs):
                 print(ip)
 
@@ -568,8 +583,13 @@ if __name__ == "__main__":
 
     args = argparse.parse_args()
 
+    if uvloop:
+        runtime_run = uvloop.run
+    else:
+        runtime_run = asyncio.run
+
     if args.input_file == "-":
-        asyncio.run(main(args.command, args.parallelism, STDIN_ITER))
+        runtime_run(main(args.command, args.parallelism, STDIN_ITER))
     else:
         try:
             with open(args.input_file, "r") as f:
@@ -582,5 +602,4 @@ if __name__ == "__main__":
 
             sys_exit(-1)
         
-        asyncio.run(main(args.command, args.parallelism, input_iter))
-
+        runtime_run(main(args.command, args.parallelism, input_iter))

@@ -13,6 +13,8 @@ from dataclasses import dataclass
 
 import re
 
+import json
+
 import requests  # type: ignore[import]
 
 BOUNTY_JSON = "https://chaos-data.projectdiscovery.io/index.json"
@@ -49,7 +51,7 @@ def get_programs() -> list[Program]:
     return [
         Program(**fix_json(p)) for p in requests.get(
             BOUNTY_JSON, timeout=15
-        ).json() if p["bounty"] and not p["platform"]
+        ).json()
     ]
 
 
@@ -99,7 +101,7 @@ if __name__ == "__main__":
         "domains", help="list domains for given program"
     )
     domains_parser.set_defaults(func=get_program_domains)
-    domains_parser.add_argument("regex", type=str)
+    domains_parser.add_argument("regex", default=".*", type=str)
 
     parsed_args = argument_parser.parse_args()
 
