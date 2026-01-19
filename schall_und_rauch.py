@@ -11,7 +11,7 @@ except ImportError:
 from functools import partial
 from ipaddress import AddressValueError, IPv4Address, IPv4Network, IPv6Address, IPv6Network
 from itertools import cycle
-from random import sample
+from random import random, sample, uniform
 from sys import stdin,stderr
 from typing import Any, Callable, Iterable, Iterator, Optional
 from bisect import bisect_right
@@ -441,7 +441,10 @@ async def extract_from_cert(ip: str) -> tuple[Optional[str], list[str]]:
         if sock:
             sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
 
-        await writer.start_tls(SSL_CONTEXT, server_hostname=ip)
+        await asyncio.wait_for(
+            writer.start_tls(SSL_CONTEXT, server_hostname=ip),
+            timeout=4.0
+        )
 
         ssl_obj = writer.get_extra_info('ssl_object')
         der_cert = ssl_obj.getpeercert(binary_form=True)
@@ -466,7 +469,8 @@ async def extract_from_cert(ip: str) -> tuple[Optional[str], list[str]]:
     finally:
         if writer:
             writer.close()
-            await writer.wait_closed()
+
+            await asyncio.wait_for(writer.wait_closed(), timeout=2.0)
         
     return ip, list(names)
 
@@ -485,33 +489,34 @@ def print_help() -> None:
         file=stderr
     )
 
-async def main(cmd: str, parallelism: int, input_iter: Iterable[str]) -> None:
+async def main(cmd: str, parallelism: int, input_iter: Iterable[str], rate_limit_delay: float) -> None:
     sem = asyncio.Semaphore(parallelism)
     tasks = set()
 
-    async def sem_task(item):
+    async def sem_task(func, item, jitter_range: tuple[float, float] = (0.2, 0.5)):
         async with sem:
+            await asyncio.sleep(uniform(*jitter_range))
             try:
-                k, v = await f(item)
+                k, v = await func(item)
                 if k and v: print(f"{k}:{','.join(v)}", flush=True)
             except Exception: pass
 
-    async def run_template(func, inputs):
-        nonlocal f
-        f = func
+    async def run_template(func, inputs, rate_limit_delay: float):
         for line in inputs:
-            task = asyncio.create_task(sem_task(line.strip()))
+            task = asyncio.create_task(sem_task(func, line.strip()))
             tasks.add(task)
+            await asyncio.sleep(rate_limit_delay)
             task.add_done_callback(tasks.discard)
             if len(tasks) >= parallelism:
                 await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+
         if tasks: await asyncio.gather(*tasks, return_exceptions=True)
 
     match cmd:
         case "cnames":
             f = partial(cnames, nameserver_f=generate_next_nameserver())
 
-            await run_template(f, input_iter)
+            await run_template(f, input_iter, rate_limit_delay)
 
         case "cidr":
             cidr_inputs = [line.strip() for line in input_iter if line.strip()]
@@ -521,24 +526,30 @@ async def main(cmd: str, parallelism: int, input_iter: Iterable[str]) -> None:
         case "reverse":
             f = partial(reverse, nameserver_f=generate_next_nameserver())
 
-            await run_template(f, input_iter)
+            await run_template(f, input_iter, rate_limit_delay)
 
         case "cert":
+            print(
+                "[*] running certificate subject extraction with parallelism=" \
+                f"{parallelism} and a delay of {rate_limit_delay}s for each worker",
+                file=stderr
+            )
+
             f = partial(extract_from_cert)
 
-            await run_template(f, input_iter)
+            await run_template(f, input_iter, rate_limit_delay)
 
         case "lookup":
             f = partial(lookup, nameserver_f=generate_next_nameserver())
 
-            await run_template(f, input_iter)
+            await run_template(f, input_iter, rate_limit_delay)
 
         case "query-nameservers":
             addr = argv[2]
 
             f = partial(lookup, nameserver_f=cycle([addr]).__next__)
 
-            await run_template(f, input_iter)
+            await run_template(f, input_iter, rate_limit_delay)
 
         case default:
             print("[error] unknown command")
@@ -549,7 +560,7 @@ if __name__ == "__main__":
     from sys import argv, stderr, exit as sys_exit
     from argparse import ArgumentParser
 
-    DEFAULT_PARALLELISM = 1000
+    DEFAULT_PARALLELISM = 100
 
     argparse = ArgumentParser()
 
@@ -575,10 +586,17 @@ if __name__ == "__main__":
     )
 
     argparse.add_argument(
-        "--parallelism",
+        "-p", "--parallelism",
         type=int,
         default=DEFAULT_PARALLELISM,
         help=f"number of concurrent requests (default: {DEFAULT_PARALLELISM})",
+    )
+
+    argparse.add_argument(
+        "-s", "--requests-per-second",
+        type=int,
+        default=50,
+        help="limit number of requests per second, 0 means unlimited (default: 50)",
     )
 
     args = argparse.parse_args()
@@ -588,8 +606,10 @@ if __name__ == "__main__":
     else:
         runtime_run = asyncio.run
 
+    rate_limit_delay: float = 1 / args.requests_per_second
+
     if args.input_file == "-":
-        runtime_run(main(args.command, args.parallelism, STDIN_ITER))
+        runtime_run(main(args.command, args.parallelism, STDIN_ITER, rate_limit_delay))
     else:
         try:
             with open(args.input_file, "r") as f:
@@ -602,4 +622,4 @@ if __name__ == "__main__":
 
             sys_exit(-1)
         
-        runtime_run(main(args.command, args.parallelism, input_iter))
+        runtime_run(main(args.command, args.parallelism, input_iter, rate_limit_delay))
