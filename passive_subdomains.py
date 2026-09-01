@@ -1,6 +1,7 @@
 import asyncio
 import aiohttp
 from os import environ
+from sys import stderr
 from typing import List
 
 try:
@@ -46,8 +47,8 @@ async def kaeferjaeger_snis(session: aiohttp.ClientSession, domain: str) -> List
                 if not " -- " in line_decoded:
                     continue
 
-                for domain in [dom for dom in line_decoded.split(" -- ")[1].strip().strip("[]").split(" ") if dom.endswith(domain)]:
-                     results.append(domain)
+                for found in [dom for dom in line_decoded.split(" -- ")[1].strip().strip("[]").split(" ") if dom == domain or dom.endswith(f".{domain}")]:
+                     results.append(found)
 
         return results
 
@@ -105,7 +106,12 @@ async def main(domain: str):
         ]
 
         for future in asyncio.as_completed(tasks):
-            results = await future
+            try:
+                results = await future
+            except Exception as e:
+                print(f"[!] source failed: {type(e).__name__}: {e}", file=stderr)
+                continue
+
             for res in results:
                 print(res)
 
